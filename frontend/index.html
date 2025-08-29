@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor Writing</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/default.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 顶部菜单栏 -->
+        <div class="menu-bar">
+            <div class="menu-group">
+                <div class="menu-item" id="file-menu">
+                    <span>文件</span>
+                    <div class="dropdown-menu" id="file-dropdown">
+                        <div class="dropdown-item" data-action="new-file">
+                            <i class="fas fa-file"></i>新建文件 <span class="shortcut">Ctrl+N</span>
+                        </div>
+                        <div class="dropdown-item" data-action="open-file">
+                            <i class="fas fa-folder-open"></i>打开文件 <span class="shortcut">Ctrl+O</span>
+                        </div>
+                        <div class="dropdown-item" data-action="open-folder">
+                            <i class="fas fa-folder"></i>打开文件夹 <span class="shortcut">Ctrl+Shift+O</span>
+                        </div>
+                        <div class="dropdown-separator"></div>
+                        <div class="dropdown-item" data-action="save">
+                            <i class="fas fa-save"></i>保存 <span class="shortcut">Ctrl+S</span>
+                        </div>
+                        <div class="dropdown-item" data-action="save-as">
+                            <i class="fas fa-copy"></i>另存为
+                        </div>
+                        <div class="dropdown-separator"></div>
+                        <div class="dropdown-item" data-action="toggle-autosave">
+                            <i class="fas fa-clock"></i>自动保存 <span class="auto-save-status">关闭</span>
+                        </div>
+                        <div class="dropdown-separator"></div>
+                        <div class="dropdown-item" data-action="close">
+                            <i class="fas fa-times"></i>关闭
+                        </div>
+                    </div>
+                </div>
+                <div class="menu-item" id="edit-menu">
+                    <span>编辑</span>
+                    <div class="dropdown-menu" id="edit-dropdown">
+                        <div class="dropdown-item" data-action="undo">
+                            <i class="fas fa-undo"></i>撤销 <span class="shortcut">Ctrl+Z</span>
+                        </div>
+                        <div class="dropdown-item" data-action="redo">
+                            <i class="fas fa-redo"></i>重做 <span class="shortcut">Ctrl+Y</span>
+                        </div>
+                        <div class="dropdown-separator"></div>
+                        <div class="dropdown-item" data-action="cut">
+                            <i class="fas fa-cut"></i>剪切 <span class="shortcut">Ctrl+X</span>
+                        </div>
+                        <div class="dropdown-item" data-action="copy">
+                            <i class="fas fa-copy"></i>复制 <span class="shortcut">Ctrl+C</span>
+                        </div>
+                        <div class="dropdown-item" data-action="paste">
+                            <i class="fas fa-paste"></i>粘贴 <span class="shortcut">Ctrl+V</span>
+                        </div>
+                        <div class="dropdown-separator"></div>
+                        <div class="dropdown-item" data-action="format">
+                            <i class="fas fa-code"></i>格式化
+                        </div>
+                    </div>
+                </div>
+                <div class="menu-item" id="help-menu">
+                    <span>帮助</span>
+                    <div class="dropdown-menu" id="help-dropdown">
+                        <div class="dropdown-item" data-action="shortcuts">
+                            <i class="fas fa-keyboard"></i>快捷键参考
+                        </div>
+                        <div class="dropdown-item" data-action="about">
+                            <i class="fas fa-info-circle"></i>关于
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="main-content">
+            <!-- 左侧文件树 -->
+            <div class="sidebar" id="file-tree-panel">
+                <div class="panel-header">
+                    <h3>文件资源管理器</h3>
+                    <div class="panel-actions">
+                        <button class="btn-icon" id="refresh-tree" title="刷新">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="btn-icon" id="collapse-tree" title="折叠所有">
+                            <i class="fas fa-compress-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="file-tree" id="file-tree">
+                    <div class="empty-state">
+                        <i class="fas fa-folder-open"></i>
+                        <p>打开文件夹以查看文件</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间编辑区域 -->
+            <div class="editor-container">
+                <!-- 标签页区域 -->
+                <div class="tabs-container" id="tabs-container">
+                    <div class="tabs" id="tabs"></div>
+                    <div class="tab-actions">
+                        <button class="btn-icon" id="close-all-tabs" title="关闭所有标签">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 编辑器主区域 -->
+                <div class="editor-main" id="editor-main">
+                    <div class="welcome-screen" id="welcome-screen">
+                        <div class="welcome-content">
+                            <h1>Cursor Writing</h1>
+                            <p class="subtitle">开始您的编程之旅</p>
+                            <div class="quick-actions">
+                                <button class="welcome-btn" data-action="new-file">
+                                    <i class="fas fa-file-plus"></i>
+                                    <span>新建文件</span>
+                                </button>
+                                <button class="welcome-btn" data-action="open-file">
+                                    <i class="fas fa-folder-open"></i>
+                                    <span>打开文件</span>
+                                </button>
+                                <button class="welcome-btn" data-action="open-folder">
+                                    <i class="fas fa-folder"></i>
+                                    <span>打开文件夹</span>
+                                </button>
+                            </div>
+                            <div class="features">
+                                <div class="feature">
+                                    <i class="fas fa-code"></i>
+                                    <span>语法高亮</span>
+                                </div>
+                                <div class="feature">
+                                    <i class="fas fa-robot"></i>
+                                    <span>AI辅助</span>
+                                </div>
+                                <div class="feature">
+                                    <i class="fas fa-save"></i>
+                                    <span>自动保存</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧AI辅助面板 -->
+            <div class="ai-panel" id="ai-panel">
+                <div class="panel-header">
+                    <h3>AI 辅助</h3>
+                    <button class="btn-icon" id="close-ai-panel" title="关闭">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="ai-content">
+                    <div class="ai-mode-selector">
+                        <button class="ai-mode-btn active" data-mode="complete">文本补全</button>
+                        <button class="ai-mode-btn" data-mode="expand">文本扩写</button>
+                    </div>
+                    <div class="ai-input-area">
+                        <div class="selected-text" id="selected-text-display">
+                            <label>选中的文本：</label>
+                            <div class="text-preview" id="text-preview"></div>
+                        </div>
+                        <div class="ai-controls">
+                            <button class="ai-btn" id="generate-ai-content">
+                                <i class="fas fa-magic"></i>
+                                生成内容
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ai-result" id="ai-result">
+                        <div class="result-header">
+                            <label>AI 生成的内容：</label>
+                            <div class="result-actions">
+                                <button class="btn-small" id="apply-ai-result">应用</button>
+                                <button class="btn-small" id="copy-ai-result">复制</button>
+                            </div>
+                        </div>
+                        <div class="result-content" id="ai-result-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="status-item" id="file-type">Plain Text</span>
+                <span class="status-separator">|</span>
+                <span class="status-item" id="cursor-position">行 1, 列 1</span>
+            </div>
+            <div class="status-center">
+                <span class="status-item" id="save-status">已保存</span>
+            </div>
+            <div class="status-right">
+                <span class="status-item" id="auto-save-status">自动保存: 启用</span>
+                <span class="status-separator">|</span>
+                <span class="status-item" id="auto-save-timer">下次保存: 30s</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知容器 -->
+    <div class="notifications-container" id="notifications"></div>
+
+    <!-- 右键菜单 -->
+    <div class="context-menu" id="context-menu">
+        <div class="context-item" data-action="ai-complete">
+            <i class="fas fa-magic"></i>AI 补全
+        </div>
+        <div class="context-item" data-action="ai-expand">
+            <i class="fas fa-expand-arrows-alt"></i>AI 扩写
+        </div>
+        <div class="context-separator"></div>
+        <div class="context-item" data-action="cut">
+            <i class="fas fa-cut"></i>剪切
+        </div>
+        <div class="context-item" data-action="copy">
+            <i class="fas fa-copy"></i>复制
+        </div>
+        <div class="context-item" data-action="paste">
+            <i class="fas fa-paste"></i>粘贴
+        </div>
+    </div>
+
+    <!-- 文件树右键菜单 -->
+    <div class="context-menu" id="file-tree-context-menu">
+        <div class="context-item" data-action="open-file">
+            <i class="fas fa-folder-open"></i>打开
+        </div>
+        <div class="context-item" data-action="rename-file">
+            <i class="fas fa-edit"></i>重命名
+        </div>
+        <div class="context-item" data-action="delete-file">
+            <i class="fas fa-trash"></i>删除
+        </div>
+    </div>
+
+    <!-- 隐藏的文件输入 -->
+    <input type="file" id="file-input" style="display: none" multiple>
+    <input type="file" id="folder-input" style="display: none" webkitdirectory>
+
+    <!-- JavaScript 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/fold/brace-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/selection/active-line.min.js"></script>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Cursor Writing 简介
 
-Cursor Writing是本人尝试制作的一个小想法，旨在练习并熟悉如何做出AI类工具的流程，整个项目是在AI辅助下搭建并完成的。Cursor Writing是一个功能相对完整的现代文本编辑器，支持AI辅助撰写、语法高亮等功能。
+Cursor Writing是本人尝试制作的一个小想法，旨在练习并熟悉如何做出AI类工具的流程。Cursor Writing是一个功能相对完整的现代文本编辑器，支持AI辅助撰写、语法高亮等功能。
 
 ## ✨ 功能介绍
 

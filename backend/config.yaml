@@ -1,0 +1,81 @@
+# Cursor-Writing 配置文件
+
+# LLM 配置
+llm:
+  default_provider: openai  # 默认提供商: openai, anthropic, deepseek, custom
+
+  providers:
+    openai:
+      api_key: ${OPENAI_API_KEY}
+      model: ${OPENAI_MODEL:gpt-4o}
+      max_tokens: 8000
+      temperature: 0.7
+
+    anthropic:
+      api_key: ${ANTHROPIC_API_KEY}
+      model: ${ANTHROPIC_MODEL:claude-3-5-sonnet-20241022}
+      max_tokens: 8000
+      temperature: 0.7
+
+    deepseek:
+      api_key: ${DEEPSEEK_API_KEY}
+      model: ${DEEPSEEK_MODEL:deepseek-chat}
+      max_tokens: 8000
+      temperature: 0.7
+
+    custom:
+      api_key: ${CUSTOM_API_KEY}
+      base_url: ${CUSTOM_BASE_URL}
+      model: ${CUSTOM_MODEL}
+      max_tokens: 8000
+      temperature: 0.7
+
+# Agent 配置
+agents:
+  archivist:
+    provider: openai
+    temperature: 0.3  # 低温度，保持一致性
+
+  writer:
+    provider: anthropic
+    temperature: 0.7  # 较高温度，增加创造性
+
+  reviewer:
+    provider: openai
+    temperature: 0.2  # 低温度，严格审核
+
+  editor:
+    provider: anthropic
+    temperature: 0.5  # 中等温度，平衡修订
+
+# 上下文预算 (Token 分配)
+context_budget:
+  total_tokens: 128000
+  allocation:
+    system_rules: 0.05   # 5% - 系统规则
+    cards: 0.15          # 15% - 设定卡片
+    canon: 0.10          # 10% - 事实表
+    summaries: 0.20      # 20% - 前文摘要
+    current_draft: 0.30  # 30% - 当前草稿
+    output_reserve: 0.20 # 20% - 输出预留
+
+# 会话配置
+session:
+  max_iterations: 5       # 最大修订迭代次数
+  auto_save_interval: 60  # 自动保存间隔（秒）
+  quality_threshold: 0.7  # 质量评分阈值（低于此值需要重写）
+
+# 存储配置
+storage:
+  data_dir: ../data
+  encoding: utf-8
+  backup_enabled: true
+  backup_count: 5
+
+# 服务器配置
+server:
+  host: 0.0.0.0
+  port: 8000
+  debug: false
+  cors_origins:
+    - "*"  # 生产环境请配置具体域名

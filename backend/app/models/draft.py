@@ -27,6 +27,7 @@ class Draft(BaseModel):
     word_count: int = 0
     pending_confirmations: List[str] = Field(default_factory=list)  # [TO_CONFIRM] 标记
     created_at: datetime = Field(default_factory=datetime.now)
+    notes: Optional[str] = None  # 备注
 
 
 class ReviewIssue(BaseModel):

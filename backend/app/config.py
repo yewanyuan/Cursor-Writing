@@ -55,8 +55,9 @@ class Settings(BaseSettings):
     default_provider: str = "openai"
 
     class Config:
-        env_file = ".env"
+        env_file = Path(__file__).parent.parent / ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 class AppConfig:

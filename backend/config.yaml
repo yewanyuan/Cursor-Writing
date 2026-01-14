@@ -30,22 +30,22 @@ llm:
       max_tokens: 8000
       temperature: 0.7
 
-# Agent 配置
+# Agent 配置（默认都用 deepseek，可按需修改）
 agents:
   archivist:
-    provider: openai
+    provider: deepseek
     temperature: 0.3  # 低温度，保持一致性
 
   writer:
-    provider: anthropic
+    provider: deepseek
     temperature: 0.7  # 较高温度，增加创造性
 
   reviewer:
-    provider: openai
+    provider: deepseek
     temperature: 0.2  # 低温度，严格审核
 
   editor:
-    provider: anthropic
+    provider: deepseek
     temperature: 0.5  # 中等温度，平衡修订
 
 # 上下文预算 (Token 分配)

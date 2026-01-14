@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class Fact(BaseModel):
     """事实条目"""
-    id: str                      # F20240101xxxx
+    id: str = ""                 # F20240101xxxx，自动生成
     statement: str               # 事实陈述
     source: str = ""             # 来源章节
     confidence: float = 1.0      # 置信度 0-1
@@ -16,7 +16,7 @@ class Fact(BaseModel):
 
 class TimelineEvent(BaseModel):
     """时间线事件"""
-    id: str
+    id: str = ""                 # 自动生成
     time: str                    # 时间描述
     event: str                   # 事件描述
     participants: List[str] = Field(default_factory=list)

@@ -181,7 +181,7 @@ async def edit_character_state(project_id: str, character: str, chapter: str, st
         raise HTTPException(404, "角色状态不存在")
     # 重写文件
     storage = get_storage()
-    path = storage._get_project_dir(project_id) / "canon" / "character_states.jsonl"
+    path = storage._get_project_dir(project_id) / "canon" / "states.jsonl"
     if path.exists():
         path.unlink()
     for s in new_states:
@@ -198,7 +198,7 @@ async def delete_character_state(project_id: str, character: str, chapter: str):
         raise HTTPException(404, "角色状态不存在")
     # 重写文件
     storage = get_storage()
-    path = storage._get_project_dir(project_id) / "canon" / "character_states.jsonl"
+    path = storage._get_project_dir(project_id) / "canon" / "states.jsonl"
     if path.exists():
         path.unlink()
     for s in new_states:

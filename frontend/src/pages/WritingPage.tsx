@@ -52,7 +52,7 @@ export default function WritingPage() {
   // Form state
   const [chapter, setChapter] = useState(searchParams.get("chapter") || "第一章")
   const [chapterTitle, setChapterTitle] = useState("")
-  const [chapterGoal, setChapterGoal] = useState("")
+  const [chapterGoal, setChapterGoal] = useState(searchParams.get("outline") || "")
   const [selectedChars, setSelectedChars] = useState<string[]>([])
   const [targetWords, setTargetWords] = useState(2000)
 

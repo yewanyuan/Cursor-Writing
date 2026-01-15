@@ -101,6 +101,13 @@ export default function ProjectWorkspace() {
     relationships: {},
   })
 
+  // 章节对话框状态
+  const [chapterDialogOpen, setChapterDialogOpen] = useState(false)
+  const [chapterForm, setChapterForm] = useState({
+    title: "",
+    outline: "",
+  })
+
   useEffect(() => {
     if (projectId) loadData()
   }, [projectId])
@@ -353,6 +360,28 @@ export default function ProjectWorkspace() {
     } catch (err) {
       console.error("Failed to delete character state:", err)
     }
+  }
+
+  // 章节相关
+  const openNewChapterDialog = () => {
+    // 自动生成下一章的标题
+    const nextChapterNum = drafts.length + 1
+    setChapterForm({
+      title: `第${nextChapterNum}章`,
+      outline: "",
+    })
+    setChapterDialogOpen(true)
+  }
+
+  const handleStartWriting = () => {
+    if (!projectId || !chapterForm.title) return
+    // 跳转到写作页面，带上章节标题和大纲
+    const params = new URLSearchParams({
+      chapter: chapterForm.title,
+      ...(chapterForm.outline && { outline: chapterForm.outline }),
+    })
+    setChapterDialogOpen(false)
+    navigate(`/write/${projectId}?${params.toString()}`)
   }
 
   if (!project) {
@@ -669,7 +698,7 @@ export default function ProjectWorkspace() {
                         </div>
                       ) : (
                         facts.map((fact) => (
-                          <Card key={fact.id} className="group">
+                          <Card key={fact.id} className="group cursor-pointer hover:bg-accent/50" onClick={() => openEditFactDialog(fact)}>
                             <CardContent className="flex items-start justify-between py-3">
                               <div className="flex-1">
                                 <p className="text-sm">{fact.statement}</p>
@@ -678,14 +707,24 @@ export default function ProjectWorkspace() {
                                   <span>置信度: {(fact.confidence * 100).toFixed(0)}%</span>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                onClick={() => handleDeleteFact(fact.id)}
-                              >
-                                <Trash2 className="w-3 h-3 text-destructive" />
-                              </Button>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); openEditFactDialog(fact) }}
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteFact(fact.id) }}
+                                >
+                                  <Trash2 className="w-3 h-3 text-destructive" />
+                                </Button>
+                              </div>
                             </CardContent>
                           </Card>
                         ))
@@ -712,7 +751,7 @@ export default function ProjectWorkspace() {
                         </div>
                       ) : (
                         timeline.map((event) => (
-                          <Card key={event.id} className="group">
+                          <Card key={event.id} className="group cursor-pointer hover:bg-accent/50" onClick={() => openEditTimelineDialog(event)}>
                             <CardContent className="flex items-start justify-between py-3">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -728,14 +767,24 @@ export default function ProjectWorkspace() {
                                   </div>
                                 )}
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                onClick={() => handleDeleteTimelineEvent(event.id)}
-                              >
-                                <Trash2 className="w-3 h-3 text-destructive" />
-                              </Button>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); openEditTimelineDialog(event) }}
+                                >
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteTimelineEvent(event.id) }}
+                                >
+                                  <Trash2 className="w-3 h-3 text-destructive" />
+                                </Button>
+                              </div>
                             </CardContent>
                           </Card>
                         ))
@@ -762,12 +811,30 @@ export default function ProjectWorkspace() {
                         </div>
                       ) : (
                         characterStates.map((state, idx) => (
-                          <Card key={`${state.character}-${state.chapter}-${idx}`} className="group">
+                          <Card key={`${state.character}-${state.chapter}-${idx}`} className="group cursor-pointer hover:bg-accent/50" onClick={() => openEditStateDialog(state)}>
                             <CardContent className="py-3">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium">{state.character}</span>
                                   <span className="text-xs text-muted-foreground">截止 {state.chapter}</span>
+                                </div>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => { e.stopPropagation(); openEditStateDialog(state) }}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteState(state.character, state.chapter) }}
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </Button>
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
@@ -791,12 +858,16 @@ export default function ProjectWorkspace() {
           <TabsContent value="drafts" className="mt-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium">章节列表</h2>
+              <Button size="sm" onClick={openNewChapterDialog}>
+                <Plus className="w-4 h-4 mr-1" />
+                添加章节
+              </Button>
             </div>
             <ScrollArea className="h-[500px]">
               <div className="space-y-2">
                 {drafts.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
-                    暂无章节，点击"开始写作"创建第一章
+                    暂无章节，点击上方"添加章节"开始创作
                   </div>
                 ) : (
                   drafts.map((draft) => (
@@ -929,7 +1000,7 @@ export default function ProjectWorkspace() {
       <Dialog open={factDialogOpen} onOpenChange={setFactDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>添加事实</DialogTitle>
+            <DialogTitle>{editingFactId ? "编辑事实" : "添加事实"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -975,7 +1046,7 @@ export default function ProjectWorkspace() {
       <Dialog open={timelineDialogOpen} onOpenChange={setTimelineDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>添加时间线事件</DialogTitle>
+            <DialogTitle>{editingTimelineId ? "编辑时间线事件" : "添加时间线事件"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -1034,7 +1105,7 @@ export default function ProjectWorkspace() {
       <Dialog open={stateDialogOpen} onOpenChange={setStateDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>添加角色状态</DialogTitle>
+            <DialogTitle>{editingStateKey ? "编辑角色状态" : "添加角色状态"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1102,6 +1173,43 @@ export default function ProjectWorkspace() {
               取消
             </Button>
             <Button onClick={handleSaveState}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Chapter Dialog */}
+      <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>创建新章节</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>章节标题</Label>
+              <Input
+                value={chapterForm.title}
+                onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
+                placeholder="如：第一章 初入江湖"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>章节大纲（可选）</Label>
+              <Textarea
+                value={chapterForm.outline}
+                onChange={(e) => setChapterForm({ ...chapterForm, outline: e.target.value })}
+                placeholder="描述这一章的主要情节和要点，AI 会根据大纲进行创作"
+                rows={5}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChapterDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleStartWriting}>
+              <Pen className="w-4 h-4 mr-1" />
+              开始创作
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

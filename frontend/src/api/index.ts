@@ -6,6 +6,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 300000, // 5分钟超时（AI 写作需要较长时间）
 })
 
 // Projects
@@ -55,6 +56,14 @@ export const sessionApi = {
   getStatus: (projectId: string) => api.get(`/session/status/${projectId}`),
   feedback: (projectId: string, action: "confirm" | "revise", content?: string) =>
     api.post(`/session/feedback/${projectId}`, { action, content }),
+  continue: (data: {
+    project_id: string
+    chapter: string
+    existing_content: string
+    instruction: string
+    target_words?: number
+    insert_position?: number | null
+  }) => api.post("/session/continue", data),
 }
 
 // Canon 事实表

@@ -31,12 +31,68 @@ class DraftStorage(BaseStorage):
         return self._sort_chapters(chapters)
 
     def _sort_chapters(self, chapters: List[str]) -> List[str]:
-        """按章节号排序"""
+        """按章节号排序，支持多种格式"""
+        # 中文数字映射
+        cn_num_map = {
+            '零': 0, '〇': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+            '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+            '百': 100, '千': 1000, '万': 10000
+        }
+
+        def cn_to_num(cn_str: str) -> int:
+            """将中文数字转换为阿拉伯数字"""
+            if not cn_str:
+                return 0
+            result = 0
+            temp = 0
+            for char in cn_str:
+                if char in cn_num_map:
+                    val = cn_num_map[char]
+                    if val >= 10:
+                        if temp == 0:
+                            temp = 1
+                        result += temp * val
+                        temp = 0
+                    else:
+                        temp = temp * 10 + val
+            result += temp
+            return result if result > 0 else -1
+
         def sort_key(ch: str):
-            match = re.match(r'ch(\d+)', ch)
+            # 1. 匹配 "第X章" 格式（中文数字）
+            match = re.match(r'第([零〇一二三四五六七八九十百千万]+)章', ch)
             if match:
-                return (1, int(match.group(1)))
-            return (0, ch)  # 特殊章节排前面
+                return (2, cn_to_num(match.group(1)), ch)
+
+            # 2. 匹配 "第X章" 格式（阿拉伯数字）
+            match = re.match(r'第(\d+)章', ch)
+            if match:
+                return (2, int(match.group(1)), ch)
+
+            # 3. 匹配 "chX" 格式
+            match = re.match(r'ch(\d+)', ch, re.IGNORECASE)
+            if match:
+                return (2, int(match.group(1)), ch)
+
+            # 4. 匹配 "Chapter X" 格式
+            match = re.match(r'chapter\s*(\d+)', ch, re.IGNORECASE)
+            if match:
+                return (2, int(match.group(1)), ch)
+
+            # 5. 匹配纯数字开头
+            match = re.match(r'(\d+)', ch)
+            if match:
+                return (2, int(match.group(1)), ch)
+
+            # 6. 特殊章节（序章、楔子等）排最前面
+            special_order = {'序章': 0, '楔子': 1, '引子': 2, '序言': 3, '前言': 4}
+            for key, order in special_order.items():
+                if key in ch:
+                    return (1, order, ch)
+
+            # 7. 其他按字母顺序
+            return (3, 0, ch)
+
         return sorted(chapters, key=sort_key)
 
     async def create_chapter(self, project_id: str, chapter: str) -> None:

@@ -10,6 +10,7 @@ from typing import Dict, Any, Optional, Callable, Awaitable
 from app.storage import ProjectStorage, CardStorage, CanonStorage, DraftStorage
 from app.agents import ArchivistAgent, WriterAgent, ReviewerAgent, EditorAgent
 from app.core.context import ContextSelector
+from app.core.budgeter import get_budgeter
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ class SessionStatus(str, Enum):
 class Orchestrator:
     """调度器"""
 
+    # 质量阈值配置
+    QUALITY_THRESHOLD = 0.7     # 低于此分数需要重写
+    MAX_REWRITE_ITERATIONS = 2  # 最大重写次数
+
     def __init__(self, data_dir: str = "../data"):
         # 存储
         self.projects = ProjectStorage(data_dir)
@@ -45,11 +50,15 @@ class Orchestrator:
         # 上下文选择器
         self.context_selector = ContextSelector(self.cards, self.canon, self.drafts)
 
+        # Token 预算管理器
+        self.budgeter = get_budgeter()
+
         # 状态
         self.status = SessionStatus.IDLE
         self.current_project: Optional[str] = None
         self.current_chapter: Optional[str] = None
         self.iteration = 0
+        self.rewrite_iteration = 0  # 重写迭代次数
         self.max_iterations = 5
 
         # 进度回调
@@ -63,7 +72,8 @@ class Orchestrator:
                 "message": message,
                 "project": self.current_project,
                 "chapter": self.current_chapter,
-                "iteration": self.iteration
+                "iteration": self.iteration,
+                "rewrite_iteration": self.rewrite_iteration
             })
 
     async def start_session(
@@ -78,11 +88,12 @@ class Orchestrator:
         """
         开始写作会话
 
-        完整流程：资料员 → 撰稿人 → 审稿人 → 编辑
+        完整流程：资料员 → 撰稿人 ↔ 审稿人 (循环) → 编辑
         """
         self.current_project = project_id
         self.current_chapter = chapter
         self.iteration = 0
+        self.rewrite_iteration = 0
 
         try:
             # 确保章节目录存在
@@ -102,32 +113,73 @@ class Orchestrator:
             if not brief_result.get("success"):
                 return await self._error("场景简报生成失败")
 
-            # 2. 撰稿人生成草稿
-            self.status = SessionStatus.WRITING
-            await self._notify("撰稿人正在撰写草稿...")
+            # 2. Writer-Reviewer 质量循环
+            write_result = None
+            review_result = None
 
-            write_result = await self.writer.run(
-                project_id, chapter,
-                chapter_goal=chapter_goal,
-                target_words=target_words
-            )
+            for rewrite_i in range(self.MAX_REWRITE_ITERATIONS + 1):
+                self.rewrite_iteration = rewrite_i
 
-            if not write_result.get("success"):
-                return await self._error("草稿生成失败")
+                # 2a. 撰稿人生成草稿
+                self.status = SessionStatus.WRITING
+                if rewrite_i == 0:
+                    await self._notify("撰稿人正在撰写草稿...")
+                else:
+                    await self._notify(f"撰稿人根据审稿意见重写草稿（第 {rewrite_i} 次）...")
 
-            # 3. 审稿人审核
-            self.status = SessionStatus.REVIEWING
-            await self._notify("审稿人正在审核...")
+                # 如果是重写，传入上次的审稿意见
+                writer_kwargs = {
+                    "chapter_goal": chapter_goal,
+                    "target_words": target_words
+                }
+                if review_result and rewrite_i > 0:
+                    review = review_result.get("review")
+                    if review:
+                        writer_kwargs["review_feedback"] = review.summary
 
-            review_result = await self.reviewer.run(project_id, chapter)
+                write_result = await self.writer.run(
+                    project_id, chapter,
+                    **writer_kwargs
+                )
 
-            # 4. 编辑修订
+                if not write_result.get("success"):
+                    return await self._error("草稿生成失败")
+
+                # 2b. 审稿人审核
+                self.status = SessionStatus.REVIEWING
+                await self._notify("审稿人正在审核...")
+
+                review_result = await self.reviewer.run(project_id, chapter)
+
+                if not review_result.get("success"):
+                    # 审核失败不阻塞流程
+                    logger.warning("审核失败，跳过质量检查")
+                    break
+
+                # 2c. 检查质量评分
+                review = review_result.get("review")
+                score = review.overall_score if review else 0.8
+
+                logger.info(f"草稿质量评分: {score:.2f} (阈值: {self.QUALITY_THRESHOLD})")
+
+                if score >= self.QUALITY_THRESHOLD:
+                    # 质量达标，退出循环
+                    await self._notify(f"草稿质量达标（评分 {score:.2f}）")
+                    break
+                elif rewrite_i < self.MAX_REWRITE_ITERATIONS:
+                    # 质量不达标，继续循环重写
+                    await self._notify(f"草稿质量不达标（评分 {score:.2f}），准备重写...")
+                else:
+                    # 达到最大重写次数
+                    await self._notify(f"已达最大重写次数，当前评分 {score:.2f}")
+
+            # 3. 编辑修订
             self.status = SessionStatus.EDITING
             await self._notify("编辑正在修订...")
 
             edit_result = await self.editor.run(project_id, chapter)
 
-            # 5. 等待用户反馈
+            # 4. 等待用户反馈
             self.status = SessionStatus.WAITING
             await self._notify("等待确认")
 
@@ -136,8 +188,10 @@ class Orchestrator:
                 "status": self.status.value,
                 "brief": brief_result.get("brief"),
                 "draft": edit_result.get("draft"),
-                "review": review_result.get("review"),
-                "version": edit_result.get("version")
+                "review": review_result.get("review") if review_result else None,
+                "version": edit_result.get("version"),
+                "quality_score": review_result.get("review").overall_score if review_result and review_result.get("review") else None,
+                "rewrite_count": self.rewrite_iteration
             }
 
         except Exception as e:
@@ -243,5 +297,6 @@ class Orchestrator:
             "status": self.status.value,
             "project": self.current_project,
             "chapter": self.current_chapter,
-            "iteration": self.iteration
+            "iteration": self.iteration,
+            "rewrite_iteration": self.rewrite_iteration
         }

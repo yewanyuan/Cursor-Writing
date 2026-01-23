@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useParams, useNavigate } from "react-router-dom"
+import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { motion } from "framer-motion"
 import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ import type { Project, CharacterCard, WorldCard, StyleCard, RulesCard, Draft, Fa
 
 export default function ProjectWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [project, setProject] = useState<Project | null>(null)
   const [characters, setCharacters] = useState<CharacterCard[]>([])
@@ -39,7 +40,8 @@ export default function ProjectWorkspace() {
     quality_standards: [],
   })
   const [drafts, setDrafts] = useState<Draft[]>([])
-  const [activeTab, setActiveTab] = useState("characters")
+  // 从 URL 参数读取初始 tab，默认为 characters
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "characters")
 
   // Canon 状态
   const [facts, setFacts] = useState<Fact[]>([])

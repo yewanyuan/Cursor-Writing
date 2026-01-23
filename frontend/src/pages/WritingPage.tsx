@@ -13,6 +13,8 @@ import {
   PanelRightClose,
   Wifi,
   WifiOff,
+  PenLine,
+  Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,6 +35,8 @@ const STATUS_TEXT: Record<string, string> = {
   error: "出现错误",
 }
 
+type WriteMode = "new" | "continue" | "insert"
+
 export default function WritingPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [searchParams] = useSearchParams()
@@ -48,6 +52,7 @@ export default function WritingPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Form state
   const [chapter, setChapter] = useState(searchParams.get("chapter") || "第一章")
@@ -56,15 +61,29 @@ export default function WritingPage() {
   const [selectedChars, setSelectedChars] = useState<string[]>([])
   const [targetWords, setTargetWords] = useState(2000)
 
+  // 续写相关状态
+  const [writeMode, setWriteMode] = useState<WriteMode>("new")
+  const [continueInstruction, setContinueInstruction] = useState("")
+  const [continueTargetWords, setContinueTargetWords] = useState(500)
+  const [insertPosition, setInsertPosition] = useState<number | null>(null)
+
   const addMessage = useCallback((role: string, content: string) => {
     setMessages((prev) => [...prev, { role, content }])
   }, [])
 
   // WebSocket 连接
+  const chapterRef = useRef(chapter)
+  chapterRef.current = chapter
+
   useEffect(() => {
     if (!projectId) return
 
+    let isCancelled = false
+    let reconnectTimer: ReturnType<typeof setTimeout>
+
     const connectWs = () => {
+      if (isCancelled) return
+
       const ws = new WebSocket(`ws://localhost:8000/api/ws/${projectId}/session`)
       wsRef.current = ws
 
@@ -83,19 +102,27 @@ export default function WritingPage() {
             setStatus({ status: data.status, message: data.message })
           }
 
-          // 添加消息
+          // 添加消息（去重：只有内容变化时才添加）
           if (data.message) {
-            addMessage("assistant", data.message)
+            setMessages((prev) => {
+              const last = prev[prev.length - 1]
+              if (last && last.role === "assistant" && last.content === data.message) {
+                return prev // 重复消息，不添加
+              }
+              return [...prev, { role: "assistant", content: data.message }]
+            })
           }
 
           // 处理完成状态
           if (data.status === "completed" || data.status === "waiting") {
-            // 加载最新草稿
             try {
-              const draftRes = await draftApi.get(projectId, chapter)
+              const draftRes = await draftApi.get(projectId, chapterRef.current)
               setContent(draftRes.data.content)
               if (data.status === "completed") {
-                addMessage("assistant", `创作完成！共 ${draftRes.data.word_count} 字`)
+                setMessages((prev) => [
+                  ...prev,
+                  { role: "assistant", content: `创作完成！共 ${draftRes.data.word_count} 字` }
+                ])
               }
             } catch (err) {
               console.error("Failed to load draft:", err)
@@ -109,8 +136,9 @@ export default function WritingPage() {
       ws.onclose = () => {
         console.log("WebSocket disconnected")
         setWsConnected(false)
-        // 尝试重连
-        setTimeout(connectWs, 3000)
+        if (!isCancelled) {
+          reconnectTimer = setTimeout(connectWs, 3000)
+        }
       }
 
       ws.onerror = (err) => {
@@ -122,11 +150,14 @@ export default function WritingPage() {
     connectWs()
 
     return () => {
+      isCancelled = true
+      clearTimeout(reconnectTimer)
       if (wsRef.current) {
         wsRef.current.close()
+        wsRef.current = null
       }
     }
-  }, [projectId, chapter, addMessage])
+  }, [projectId])
 
   useEffect(() => {
     if (projectId) loadData()
@@ -163,7 +194,10 @@ export default function WritingPage() {
   }
 
   const startWriting = async () => {
-    if (!projectId || !chapter || !chapterTitle) return
+    if (!projectId || !chapter) {
+      console.log("Missing required fields:", { projectId, chapter })
+      return
+    }
 
     try {
       setStatus({ status: "briefing" })
@@ -226,7 +260,59 @@ export default function WritingPage() {
     )
   }
 
+  // 获取光标位置
+  const getCursorPosition = () => {
+    if (textareaRef.current) {
+      return textareaRef.current.selectionStart
+    }
+    return null
+  }
+
+  // 续写处理
+  const handleContinueWriting = async () => {
+    if (!projectId || !content || !continueInstruction) {
+      console.log("Missing required fields for continue writing")
+      return
+    }
+
+    try {
+      setStatus({ status: "writing" })
+      const modeText = writeMode === "continue" ? "续写" : "插入"
+      addMessage("user", `${modeText}：${continueInstruction}`)
+      addMessage("assistant", `AI 正在${modeText}...`)
+
+      const result = await sessionApi.continue({
+        project_id: projectId,
+        chapter,
+        existing_content: content,
+        instruction: continueInstruction,
+        target_words: continueTargetWords,
+        insert_position: writeMode === "insert" ? insertPosition : null,
+      })
+
+      if (result.data.success) {
+        setContent(result.data.draft.content)
+        addMessage("assistant", `${modeText}完成，新增约 ${result.data.new_content?.length || 0} 字`)
+        setStatus({ status: "waiting" })
+      }
+
+      setContinueInstruction("")
+    } catch (err) {
+      console.error("Failed to continue writing:", err)
+      setStatus({ status: "error", message: "续写失败" })
+      addMessage("assistant", "续写失败，请重试")
+    }
+  }
+
+  // 切换到插入模式时记录光标位置
+  const switchToInsertMode = () => {
+    const pos = getCursorPosition()
+    setInsertPosition(pos)
+    setWriteMode("insert")
+  }
+
   const isWorking = ["briefing", "writing", "reviewing", "editing"].includes(status.status)
+  const hasContent = content.length > 0
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -234,7 +320,7 @@ export default function WritingPage() {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="border-b px-4 py-3 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}?tab=drafts`)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
@@ -264,6 +350,7 @@ export default function WritingPage() {
         {/* Editor */}
         <div className="flex-1 p-6">
           <Textarea
+            ref={textareaRef}
             className="writing-editor w-full h-full min-h-[500px] resize-none border-0 focus-visible:ring-0 text-base"
             placeholder="开始你的创作..."
             value={content}
@@ -300,58 +387,183 @@ export default function WritingPage() {
             {status.status === "idle" && (
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
-                  <div className="grid gap-2">
-                    <Label>章节编号</Label>
-                    <Input
-                      value={chapter}
-                      onChange={(e) => setChapter(e.target.value)}
-                      placeholder="如：第一章"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>章节标题</Label>
-                    <Input
-                      value={chapterTitle}
-                      onChange={(e) => setChapterTitle(e.target.value)}
-                      placeholder="本章标题"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>章节目标</Label>
-                    <Textarea
-                      value={chapterGoal}
-                      onChange={(e) => setChapterGoal(e.target.value)}
-                      placeholder="本章要达成的剧情目标"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>目标字数</Label>
-                    <Input
-                      type="number"
-                      value={targetWords}
-                      onChange={(e) => setTargetWords(Number(e.target.value))}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>出场角色</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {characters.map((char) => (
-                        <Button
-                          key={char.name}
-                          variant={selectedChars.includes(char.name) ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => toggleChar(char.name)}
-                        >
-                          {char.name}
-                        </Button>
-                      ))}
+                  {/* 模式切换 - 当已有内容时显示 */}
+                  {hasContent && (
+                    <div className="flex gap-2 p-1 bg-muted rounded-lg">
+                      <Button
+                        variant={writeMode === "new" ? "default" : "ghost"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setWriteMode("new")}
+                      >
+                        <Send className="w-3 h-3 mr-1" />
+                        新章节
+                      </Button>
+                      <Button
+                        variant={writeMode === "continue" ? "default" : "ghost"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setWriteMode("continue")}
+                      >
+                        <PenLine className="w-3 h-3 mr-1" />
+                        续写
+                      </Button>
+                      <Button
+                        variant={writeMode === "insert" ? "default" : "ghost"}
+                        size="sm"
+                        className="flex-1"
+                        onClick={switchToInsertMode}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        插入
+                      </Button>
                     </div>
-                  </div>
-                  <Button className="w-full" onClick={startWriting}>
-                    <Send className="w-4 h-4 mr-2" />
-                    开始创作
-                  </Button>
+                  )}
+
+                  {/* 新章节模式 */}
+                  {(writeMode === "new" || !hasContent) && (
+                    <>
+                      <div className="grid gap-2">
+                        <Label>章节编号</Label>
+                        <Input
+                          value={chapter}
+                          onChange={(e) => setChapter(e.target.value)}
+                          placeholder="如：第一章"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>章节标题</Label>
+                        <Input
+                          value={chapterTitle}
+                          onChange={(e) => setChapterTitle(e.target.value)}
+                          placeholder="本章标题"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>章节目标</Label>
+                        <Textarea
+                          value={chapterGoal}
+                          onChange={(e) => setChapterGoal(e.target.value)}
+                          placeholder="本章要达成的剧情目标"
+                          rows={3}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>目标字数</Label>
+                        <Input
+                          type="number"
+                          value={targetWords}
+                          onChange={(e) => setTargetWords(Number(e.target.value))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>出场角色</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {characters.map((char) => (
+                            <Button
+                              key={char.name}
+                              variant={selectedChars.includes(char.name) ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => toggleChar(char.name)}
+                            >
+                              {char.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <Button className="w-full" onClick={startWriting}>
+                        <Send className="w-4 h-4 mr-2" />
+                        开始创作
+                      </Button>
+                    </>
+                  )}
+
+                  {/* 续写模式 */}
+                  {writeMode === "continue" && hasContent && (
+                    <>
+                      <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                        <p className="text-muted-foreground">
+                          将在当前内容末尾续写。请描述接下来要写的内容。
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>续写内容描述</Label>
+                        <Textarea
+                          value={continueInstruction}
+                          onChange={(e) => setContinueInstruction(e.target.value)}
+                          placeholder="例如：主角与反派第一次正面交锋，展示双方实力差距..."
+                          rows={4}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>目标字数</Label>
+                        <Input
+                          type="number"
+                          value={continueTargetWords}
+                          onChange={(e) => setContinueTargetWords(Number(e.target.value))}
+                        />
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={handleContinueWriting}
+                        disabled={!continueInstruction}
+                      >
+                        <PenLine className="w-4 h-4 mr-2" />
+                        开始续写
+                      </Button>
+                    </>
+                  )}
+
+                  {/* 插入模式 */}
+                  {writeMode === "insert" && hasContent && (
+                    <>
+                      <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
+                        <p className="text-muted-foreground">
+                          将在光标位置插入新内容。
+                        </p>
+                        <p className="font-medium">
+                          插入位置：第 {insertPosition ?? 0} 字处
+                          {insertPosition !== null && insertPosition > 0 && (
+                            <span className="text-muted-foreground ml-2">
+                              （...{content.slice(Math.max(0, insertPosition - 20), insertPosition)}|）
+                            </span>
+                          )}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setInsertPosition(getCursorPosition())}
+                        >
+                          更新插入位置
+                        </Button>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>插入内容描述</Label>
+                        <Textarea
+                          value={continueInstruction}
+                          onChange={(e) => setContinueInstruction(e.target.value)}
+                          placeholder="例如：添加一段对环境的细节描写..."
+                          rows={4}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>目标字数</Label>
+                        <Input
+                          type="number"
+                          value={continueTargetWords}
+                          onChange={(e) => setContinueTargetWords(Number(e.target.value))}
+                        />
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={handleContinueWriting}
+                        disabled={!continueInstruction || insertPosition === null}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        插入内容
+                      </Button>
+                    </>
+                  )}
                 </div>
               </ScrollArea>
             )}

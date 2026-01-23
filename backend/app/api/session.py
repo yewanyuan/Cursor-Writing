@@ -39,6 +39,16 @@ class FeedbackRequest(BaseModel):
     content: Optional[str] = None
 
 
+class ContinueWritingRequest(BaseModel):
+    """续写请求"""
+    project_id: str
+    chapter: str
+    existing_content: str
+    instruction: str
+    target_words: int = 500
+    insert_position: Optional[int] = None  # None 表示末尾续写
+
+
 @router.post("/start")
 async def start_session(req: StartSessionRequest):
     """开始写作会话"""
@@ -52,6 +62,46 @@ async def start_session(req: StartSessionRequest):
         target_words=req.target_words
     )
     return result
+
+
+@router.post("/continue")
+async def continue_writing(req: ContinueWritingRequest):
+    """续写或插入内容"""
+    orch = get_orchestrator(req.project_id)
+
+    # 设置当前章节，以便后续 feedback 能正确工作
+    orch.current_project = req.project_id
+    orch.current_chapter = req.chapter
+
+    # 通知开始续写
+    await broadcast(req.project_id, {
+        "status": "writing",
+        "message": "AI 正在续写..." if req.insert_position is None else "AI 正在插入内容..."
+    })
+
+    try:
+        result = await orch.writer.continue_writing(
+            project_id=req.project_id,
+            chapter=req.chapter,
+            existing_content=req.existing_content,
+            instruction=req.instruction,
+            target_words=req.target_words,
+            insert_position=req.insert_position
+        )
+
+        # 通知完成
+        await broadcast(req.project_id, {
+            "status": "waiting",
+            "message": f"续写完成，新增约 {len(result.get('new_content', ''))} 字"
+        })
+
+        return result
+    except Exception as e:
+        await broadcast(req.project_id, {
+            "status": "error",
+            "message": f"续写失败: {str(e)}"
+        })
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/status/{project_id}")

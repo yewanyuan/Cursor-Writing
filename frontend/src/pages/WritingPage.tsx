@@ -66,6 +66,7 @@ export default function WritingPage() {
   const [continueInstruction, setContinueInstruction] = useState("")
   const [continueTargetWords, setContinueTargetWords] = useState(500)
   const [insertPosition, setInsertPosition] = useState<number | null>(null)
+  const skipNextDraftLoad = useRef(false)  // 跳过下一次草稿加载（续写后已更新）
 
   const addMessage = useCallback((role: string, content: string) => {
     setMessages((prev) => [...prev, { role, content }])
@@ -115,6 +116,11 @@ export default function WritingPage() {
 
           // 处理完成状态
           if (data.status === "completed" || data.status === "waiting") {
+            // 如果是续写/插入后的状态更新，跳过草稿加载（已在 handleContinueWriting 中更新）
+            if (skipNextDraftLoad.current) {
+              skipNextDraftLoad.current = false
+              return
+            }
             try {
               const draftRes = await draftApi.get(projectId, chapterRef.current)
               setContent(draftRes.data.content)
@@ -291,6 +297,8 @@ export default function WritingPage() {
       })
 
       if (result.data.success) {
+        // 设置跳过标志，防止 WebSocket 覆盖内容
+        skipNextDraftLoad.current = true
         setContent(result.data.draft.content)
         addMessage("assistant", `${modeText}完成，新增约 ${result.data.new_content?.length || 0} 字`)
         setStatus({ status: "waiting" })
@@ -614,6 +622,18 @@ export default function WritingPage() {
                         通过
                       </Button>
                     </div>
+                    <Button
+                      variant="ghost"
+                      className="w-full text-muted-foreground"
+                      onClick={() => {
+                        setStatus({ status: "idle" })
+                        setMessages([])
+                        setContinueInstruction("")
+                        setFeedback("")
+                      }}
+                    >
+                      继续创作
+                    </Button>
                   </div>
                 )}
 
@@ -626,9 +646,11 @@ export default function WritingPage() {
                       onClick={() => {
                         setStatus({ status: "idle" })
                         setMessages([])
+                        setContinueInstruction("")
+                        setFeedback("")
                       }}
                     >
-                      开始新章节
+                      继续创作
                     </Button>
                   </div>
                 )}

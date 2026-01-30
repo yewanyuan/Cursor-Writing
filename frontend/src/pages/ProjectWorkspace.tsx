@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity } from "lucide-react"
+import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity, Download, Loader2, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { projectApi, cardApi, draftApi, canonApi } from "@/api"
+import { projectApi, cardApi, draftApi, canonApi, exportApi } from "@/api"
 import type { Project, CharacterCard, WorldCard, StyleCard, RulesCard, Draft, Fact, TimelineEvent, CharacterState } from "@/types"
 
 export default function ProjectWorkspace() {
@@ -109,6 +109,13 @@ export default function ProjectWorkspace() {
     title: "",
     outline: "",
   })
+
+  // 导出对话框状态
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [exportFormat, setExportFormat] = useState<"txt" | "markdown" | "epub">("txt")
+  const [exportUseFinal, setExportUseFinal] = useState(true)
+  const [exportInfo, setExportInfo] = useState<{ total_words: number; chapter_count: number } | null>(null)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (projectId) loadData()
@@ -386,6 +393,58 @@ export default function ProjectWorkspace() {
     navigate(`/write/${projectId}?${params.toString()}`)
   }
 
+  // 导出相关
+  const openExportDialog = async () => {
+    if (!projectId) return
+    setExportDialogOpen(true)
+    try {
+      const res = await exportApi.getInfo(projectId)
+      setExportInfo(res.data)
+    } catch (err) {
+      console.error("Failed to get export info:", err)
+    }
+  }
+
+  const handleExport = async () => {
+    if (!projectId) return
+    setExporting(true)
+    try {
+      const response = await exportApi.export(projectId, exportFormat, exportUseFinal)
+
+      // 检查响应是否为错误（blob 类型的错误需要特殊处理）
+      if (response.data instanceof Blob && response.data.type === "application/json") {
+        const text = await response.data.text()
+        const error = JSON.parse(text)
+        throw new Error(error.detail || "导出失败")
+      }
+
+      // 创建下载链接
+      const blob = response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], { type: response.headers["content-type"] })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+
+      // 从响应头获取文件名，或使用默认值
+      const ext = exportFormat === "markdown" ? "md" : exportFormat
+      a.download = `${project?.name || "novel"}.${ext}`
+
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      setExportDialogOpen(false)
+    } catch (err: any) {
+      console.error("Failed to export:", err)
+      const message = err?.response?.data?.detail || err?.message || "导出失败，请重试"
+      alert(message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (!project) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -406,6 +465,10 @@ export default function ProjectWorkspace() {
               <h1 className="text-xl font-semibold">{project.name}</h1>
               <p className="text-sm text-muted-foreground">{project.genre}</p>
             </div>
+            <Button variant="outline" onClick={() => navigate(`/stats/${projectId}?from=${activeTab}`)}>
+              <BarChart3 className="w-4 h-4 mr-2" />
+              统计
+            </Button>
             <Button onClick={() => navigate(`/write/${projectId}`)}>
               <Pen className="w-4 h-4 mr-2" />
               开始写作
@@ -860,10 +923,16 @@ export default function ProjectWorkspace() {
           <TabsContent value="drafts" className="mt-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium">章节列表</h2>
-              <Button size="sm" onClick={openNewChapterDialog}>
-                <Plus className="w-4 h-4 mr-1" />
-                添加章节
-              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={openExportDialog}>
+                  <Download className="w-4 h-4 mr-1" />
+                  导出小说
+                </Button>
+                <Button size="sm" onClick={openNewChapterDialog}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  添加章节
+                </Button>
+              </div>
             </div>
             <ScrollArea className="h-[500px]">
               <div className="space-y-2">
@@ -1211,6 +1280,104 @@ export default function ProjectWorkspace() {
             <Button onClick={handleStartWriting}>
               <Pen className="w-4 h-4 mr-1" />
               开始创作
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>导出小说</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {exportInfo && (
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span>章节数</span>
+                  <span className="font-medium">{exportInfo.chapter_count} 章</span>
+                </div>
+                <div className="flex justify-between text-sm mt-2">
+                  <span>总字数</span>
+                  <span className="font-medium">{exportInfo.total_words.toLocaleString()} 字</span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label>导出格式</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={exportFormat === "txt" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setExportFormat("txt")}
+                >
+                  TXT
+                </Button>
+                <Button
+                  variant={exportFormat === "markdown" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setExportFormat("markdown")}
+                >
+                  Markdown
+                </Button>
+                <Button
+                  variant={exportFormat === "epub" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setExportFormat("epub")}
+                >
+                  EPUB
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {exportFormat === "txt" && "纯文本格式，兼容性最好"}
+                {exportFormat === "markdown" && "Markdown 格式，带目录和格式"}
+                {exportFormat === "epub" && "电子书格式，可在阅读器中打开"}
+              </p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>内容来源</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={exportUseFinal ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setExportUseFinal(true)}
+                >
+                  成稿优先
+                </Button>
+                <Button
+                  variant={!exportUseFinal ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setExportUseFinal(false)}
+                >
+                  最新草稿
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {exportUseFinal
+                  ? "优先使用已确认的成稿，没有成稿时使用最新草稿"
+                  : "始终使用最新版本的草稿"}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleExport} disabled={exporting || !exportInfo?.chapter_count}>
+              {exporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  导出中...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-1" />
+                  导出
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

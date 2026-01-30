@@ -4,6 +4,7 @@
 使用 TF-IDF 进行相似度检索
 """
 
+import asyncio
 import logging
 import re
 import math
@@ -203,54 +204,72 @@ class ContextSelector:
             "summaries": []
         }
 
-        # 1. 角色卡 - 指定角色或按相关性选择
-        if characters:
-            char_names = characters
-        else:
-            char_names = await self.cards.list_characters(project_id)
+        # 并行获取所有基础数据
+        char_names_task = None
+        if not characters:
+            char_names_task = self.cards.list_characters(project_id)
 
-        # 收集角色卡并计算相关性
-        char_docs = []
-        for name in char_names:
-            card = await self.cards.get_character(project_id, name)
-            if card:
-                text = f"{card.name} {card.identity} {' '.join(card.personality)} {card.speech_pattern}"
-                char_docs.append((card, text))
+        world_names_task = self.cards.list_world_cards(project_id)
+        style_task = self.cards.get_style(project_id)
+        rules_task = self.cards.get_rules(project_id)
+        facts_task = self.canon.get_facts(project_id)
+        summaries_task = self.drafts.get_previous_summaries(project_id, chapter, limit=20)
 
-        if char_docs and chapter_goal:
+        # 并行执行所有任务
+        tasks = [world_names_task, style_task, rules_task, facts_task, summaries_task]
+        if char_names_task:
+            tasks.append(char_names_task)
+
+        results = await asyncio.gather(*tasks)
+
+        world_names = results[0]
+        context["style"] = results[1]
+        context["rules"] = results[2]
+        all_facts = results[3]
+        all_summaries = results[4]
+        char_names = results[5] if char_names_task else characters
+
+        # 并行获取角色卡和世界观卡详情
+        char_card_tasks = [
+            self.cards.get_character(project_id, name)
+            for name in char_names
+        ]
+        world_card_tasks = [
+            self.cards.get_world_card(project_id, name)
+            for name in world_names
+        ]
+
+        all_card_results = await asyncio.gather(*char_card_tasks, *world_card_tasks)
+
+        char_cards = [c for c in all_card_results[:len(char_card_tasks)] if c]
+        world_cards = [c for c in all_card_results[len(char_card_tasks):] if c]
+
+        # 1. 角色卡 - 按相关性选择
+        if char_cards and chapter_goal:
+            char_docs = [(card, f"{card.name} {card.identity} {' '.join(card.personality)} {card.speech_pattern}")
+                        for card in char_cards]
             ranked_chars = self.similarity.rank_by_similarity(chapter_goal, char_docs, top_k=10)
             context["characters"] = [item.item for item in ranked_chars if item.score > 0.05]
             # 至少保留指定的角色
             if characters:
-                for card, _ in char_docs:
+                for card in char_cards:
                     if card.name in characters and card not in context["characters"]:
                         context["characters"].append(card)
         else:
-            context["characters"] = [card for card, _ in char_docs[:10]]
+            context["characters"] = char_cards[:10]
 
         # 2. 世界观卡 - 使用相似度排序
-        world_names = await self.cards.list_world_cards(project_id)
-        world_docs = []
-        for name in world_names:
-            card = await self.cards.get_world_card(project_id, name)
-            if card:
-                text = f"{card.name} {card.category} {card.description}"
-                world_docs.append((card, text))
-
-        if world_docs and chapter_goal:
+        if world_cards and chapter_goal:
+            world_docs = [(card, f"{card.name} {card.category} {card.description}")
+                         for card in world_cards]
             ranked_world = self.similarity.rank_by_similarity(chapter_goal, world_docs, top_k=5)
             context["world"] = [item.item for item in ranked_world if item.score > 0.03]
 
         # 如果没匹配到，至少取前3个
-        if not context["world"] and world_docs:
-            context["world"] = [card for card, _ in world_docs[:3]]
-
-        # 3. 文风和规则（全量包含，通常较小）
-        context["style"] = await self.cards.get_style(project_id)
-        context["rules"] = await self.cards.get_rules(project_id)
+        if not context["world"] and world_cards:
+            context["world"] = world_cards[:3]
 
         # 4. 事实 - 使用相似度 + 最近原则
-        all_facts = await self.canon.get_facts(project_id)
         if all_facts:
             # 最近 5 条始终包含
             recent_facts = all_facts[-5:]
@@ -268,7 +287,6 @@ class ContextSelector:
             context["facts"] = relevant_facts + recent_facts
 
         # 5. 前文摘要 - 使用相似度 + 距离衰减
-        all_summaries = await self.drafts.get_previous_summaries(project_id, chapter, limit=20)
         if all_summaries:
             if chapter_goal:
                 summary_docs = [(s, s.summary) for s in all_summaries]

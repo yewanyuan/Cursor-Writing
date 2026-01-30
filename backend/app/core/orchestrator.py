@@ -3,6 +3,7 @@
 协调多 Agent 完成写作流程
 """
 
+import asyncio
 import logging
 from enum import Enum
 from typing import Dict, Any, Optional, Callable, Awaitable
@@ -260,13 +261,38 @@ class Orchestrator:
             # 保存为成稿
             await self.drafts.save_final(project_id, chapter, draft.content)
 
-            # 生成摘要
-            await self._notify("正在生成章节摘要...")
-            await self.archivist.generate_summary(project_id, chapter, draft.content)
+            # 并行执行：生成摘要 + 提取事实
+            await self._notify("正在生成摘要和提取事实...")
 
-            # 提取事实
-            await self._notify("正在提取事实...")
-            await self.archivist.extract_facts(project_id, chapter, draft.content)
+            summary_task = self.archivist.generate_summary(project_id, chapter, draft.content)
+            facts_task = self.archivist.extract_facts(project_id, chapter, draft.content)
+
+            summary_result, facts_result = await asyncio.gather(summary_task, facts_task)
+
+            # 自动保存提取的事实到 Canon 存储
+            saved_counts = {"facts": 0, "timeline": 0, "states": 0}
+
+            if facts_result.get("success"):
+                # 保存事实
+                for fact in facts_result.get("facts", []):
+                    await self.canon.add_fact(project_id, fact)
+                    saved_counts["facts"] += 1
+
+                # 保存时间线事件
+                for event in facts_result.get("timeline", []):
+                    await self.canon.add_timeline_event(project_id, event)
+                    saved_counts["timeline"] += 1
+
+                # 保存角色状态
+                for state in facts_result.get("states", []):
+                    await self.canon.update_character_state(project_id, state)
+                    saved_counts["states"] += 1
+
+                logger.info(
+                    f"自动提取并保存: {saved_counts['facts']} 个事实, "
+                    f"{saved_counts['timeline']} 个时间线事件, "
+                    f"{saved_counts['states']} 个角色状态"
+                )
 
             self.status = SessionStatus.COMPLETED
             await self._notify("章节完成")
@@ -274,7 +300,8 @@ class Orchestrator:
             return {
                 "success": True,
                 "status": self.status.value,
-                "message": "章节已完成"
+                "message": "章节已完成",
+                "extracted": saved_counts
             }
 
         except Exception as e:

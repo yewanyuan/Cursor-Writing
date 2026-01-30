@@ -3,6 +3,7 @@
 负责：根据场景简报生成草稿，支持续写和插入
 """
 
+import re
 import logging
 from typing import Dict, Any, Optional
 
@@ -170,6 +171,28 @@ class WriterAgent(BaseAgent):
         if rules and rules.donts:
             context_parts.append(f"【禁止事项】{', '.join(rules.donts[:3])}")
 
+        # 自动注入：已知事实（保持一致性）
+        facts = await self.canon.get_facts(project_id)
+        for f in facts[-10:]:
+            context_parts.append(f"【已知事实】{f.statement}")
+
+        # 自动注入：角色最新状态
+        states = await self.canon.get_character_states(project_id)
+        seen_chars = set()
+        for state in reversed(states):
+            if state.character not in seen_chars:
+                seen_chars.add(state.character)
+                state_desc = f"【{state.character}当前状态】"
+                if state.location:
+                    state_desc += f"位于{state.location}，"
+                if state.emotional_state:
+                    state_desc += f"情绪{state.emotional_state}，"
+                if state.injuries:
+                    state_desc += f"伤势：{', '.join(state.injuries)}"
+                context_parts.append(state_desc)
+            if len(seen_chars) >= 5:
+                break
+
         context = "\n".join(context_parts)
 
         # 根据插入位置构建 prompt
@@ -226,8 +249,18 @@ class WriterAgent(BaseAgent):
 
         # 清理响应（移除可能的标签）
         new_content = response.strip()
-        if new_content.startswith("<draft>"):
-            new_content = self.parse_xml_tag(response, "draft") or new_content
+
+        # 优先提取 <draft> 标签内容
+        draft_content = self.parse_xml_tag(response, "draft")
+        if draft_content:
+            new_content = draft_content
+        else:
+            # 如果没有 <draft> 标签，尝试移除 <plan> 标签部分
+            # 移除 <plan>...</plan> 部分
+            new_content = re.sub(r'<plan>.*?</plan>\s*', '', new_content, flags=re.DOTALL)
+            # 移除可能残留的单独标签
+            new_content = re.sub(r'</?(?:plan|draft)>', '', new_content)
+            new_content = new_content.strip()
 
         # 提取待确认项
         confirmations = self.parse_to_confirm(new_content)

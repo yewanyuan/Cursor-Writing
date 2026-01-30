@@ -49,8 +49,8 @@ async def list_drafts(project_id: str):
     for chapter in chapters:
         versions = await storage.list_versions(project_id, chapter)
         if versions:
-            # 获取最新版本
-            latest = sorted(versions)[-1]
+            # 获取最新版本（list_versions 已按数字排序）
+            latest = versions[-1]
             draft = await storage.get_draft(project_id, chapter, latest)
             if draft:
                 drafts.append(DraftResponse(
@@ -106,11 +106,11 @@ async def get_draft(project_id: str, chapter: str, version: Optional[int] = None
     if version:
         version_str = f"v{version}"
     else:
-        # 获取最新版本
+        # 获取最新版本（list_versions 已按数字排序）
         versions = await storage.list_versions(project_id, chapter)
         if not versions:
             raise HTTPException(404, "草稿不存在")
-        version_str = sorted(versions)[-1]
+        version_str = versions[-1]
 
     draft = await storage.get_draft(project_id, chapter, version_str)
     if not draft:

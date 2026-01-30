@@ -133,7 +133,8 @@ class DraftStorage(BaseStorage):
         if chapter_dir.exists():
             for f in chapter_dir.glob("v*.md"):
                 versions.append(f.stem)
-        return sorted(versions)
+        # 按版本号数字排序（v1, v2, ..., v10, v11）
+        return sorted(versions, key=lambda v: int(v[1:]) if v[1:].isdigit() else 0)
 
     async def get_draft(self, project_id: str, chapter: str, version: str) -> Optional[Draft]:
         """获取草稿"""

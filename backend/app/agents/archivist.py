@@ -3,6 +3,7 @@
 负责：生成场景简报、提取事实、生成章节摘要
 """
 
+import asyncio
 import logging
 from typing import Dict, Any, List, Optional
 
@@ -40,34 +41,64 @@ class ArchivistAgent(BaseAgent):
         chapter_goal = kwargs.get("chapter_goal", "")
         characters = kwargs.get("characters", [])
 
+        # 并行获取基础数据
+        char_names_task = None
+        if not characters:
+            char_names_task = self.cards.list_characters(project_id)
+
+        world_names_task = self.cards.list_world_cards(project_id)
+        style_task = self.cards.get_style(project_id)
+        rules_task = self.cards.get_rules(project_id)
+        summaries_task = self.drafts.get_previous_summaries(project_id, chapter, limit=3)
+        facts_task = self.canon.get_facts(project_id)
+
+        # 并行执行所有任务
+        tasks = [world_names_task, style_task, rules_task, summaries_task, facts_task]
+        if char_names_task:
+            tasks.append(char_names_task)
+
+        results = await asyncio.gather(*tasks)
+
+        world_names = results[0]
+        style = results[1]
+        rules = results[2]
+        summaries = results[3]
+        facts = results[4]
+        char_names = results[5] if char_names_task else characters
+
+        # 并行获取角色卡和世界观卡详情
+        char_card_tasks = [
+            self.cards.get_character(project_id, name)
+            for name in char_names[:10]
+        ]
+        world_card_tasks = [
+            self.cards.get_world_card(project_id, name)
+            for name in world_names[:10]
+        ]
+
+        all_card_results = await asyncio.gather(*char_card_tasks, *world_card_tasks)
+
+        char_cards = all_card_results[:len(char_card_tasks)]
+        world_cards = all_card_results[len(char_card_tasks):]
+
         # 收集上下文
         context_parts = []
 
         # 角色卡
-        char_names = characters or await self.cards.list_characters(project_id)
-        for name in char_names[:10]:
-            card = await self.cards.get_character(project_id, name)
+        for card in char_cards:
             if card:
                 context_parts.append(f"【角色】{card.name}: {card.identity}, 性格: {', '.join(card.personality)}")
 
         # 世界观
-        world_names = await self.cards.list_world_cards(project_id)
-        for name in world_names[:10]:
-            card = await self.cards.get_world_card(project_id, name)
+        for card in world_cards:
             if card:
                 context_parts.append(f"【设定】{card.name}: {card.description}")
 
-        # 文风和规则
-        style = await self.cards.get_style(project_id)
-        rules = await self.cards.get_rules(project_id)
-
         # 前文摘要
-        summaries = await self.drafts.get_previous_summaries(project_id, chapter, limit=3)
         for s in summaries:
             context_parts.append(f"【{s.chapter}摘要】{s.summary}")
 
         # 最近事实
-        facts = await self.canon.get_facts(project_id)
         for f in facts[-10:]:
             context_parts.append(f"【事实】{f.statement}")
 
@@ -114,8 +145,10 @@ forbidden:
         return {"success": True, "brief": brief, "raw": brief_text}
 
     async def extract_facts(self, project_id: str, chapter: str, content: str) -> Dict[str, Any]:
-        """从章节内容提取事实"""
+        """从章节内容提取事实、时间线事件、角色状态"""
         prompt = f"""从以下章节内容中提取关键事实：
+
+章节：{chapter}
 
 {content[:3000]}
 
@@ -124,24 +157,94 @@ forbidden:
 2. 时间线事件（有时间节点的事件）
 3. 角色状态变化
 
-输出格式：
+输出格式（严格按照此格式，每项一行）：
 <facts>
-- statement: 事实描述
-  confidence: 置信度(0-1)
+FACT|事实描述|置信度(0.0-1.0)
+FACT|另一个事实|置信度
 </facts>
 <timeline>
-- time: 时间
-  event: 事件
-  participants: [参与者]
+EVENT|时间|事件描述|参与者1,参与者2|地点
+EVENT|时间|另一事件|参与者|地点
 </timeline>
 <states>
-- character: 角色名
-  changes: 变化描述
-</states>"""
+STATE|角色名|位置|情绪状态|目标1,目标2|伤势1,伤势2
+STATE|另一角色|位置|情绪|目标|伤势
+</states>
+
+注意：
+- 只提取明确发生的事情，不要推测
+- 每个分类如果没有内容，保留空标签即可
+- 置信度范围 0.0-1.0，确定发生的事用 1.0"""
 
         response = await self.chat(prompt)
 
-        return {"success": True, "raw": response}
+        # 解析响应
+        extracted_facts: List[Fact] = []
+        extracted_timeline: List[TimelineEvent] = []
+        extracted_states: List[CharacterState] = []
+
+        # 解析事实
+        facts_text = self.parse_xml_tag(response, "facts")
+        if facts_text:
+            for line in facts_text.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("FACT|"):
+                    parts = line.split("|")
+                    if len(parts) >= 3:
+                        try:
+                            confidence = float(parts[2]) if parts[2] else 1.0
+                        except ValueError:
+                            confidence = 1.0
+                        extracted_facts.append(Fact(
+                            statement=parts[1],
+                            source=chapter,
+                            confidence=min(1.0, max(0.0, confidence))
+                        ))
+
+        # 解析时间线
+        timeline_text = self.parse_xml_tag(response, "timeline")
+        if timeline_text:
+            for line in timeline_text.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("EVENT|"):
+                    parts = line.split("|")
+                    if len(parts) >= 3:
+                        participants = parts[3].split(",") if len(parts) > 3 and parts[3] else []
+                        location = parts[4] if len(parts) > 4 else ""
+                        extracted_timeline.append(TimelineEvent(
+                            time=parts[1],
+                            event=parts[2],
+                            participants=[p.strip() for p in participants if p.strip()],
+                            location=location,
+                            source=chapter
+                        ))
+
+        # 解析角色状态
+        states_text = self.parse_xml_tag(response, "states")
+        if states_text:
+            for line in states_text.strip().split("\n"):
+                line = line.strip()
+                if line.startswith("STATE|"):
+                    parts = line.split("|")
+                    if len(parts) >= 2:
+                        goals = parts[4].split(",") if len(parts) > 4 and parts[4] else []
+                        injuries = parts[5].split(",") if len(parts) > 5 and parts[5] else []
+                        extracted_states.append(CharacterState(
+                            character=parts[1],
+                            chapter=chapter,
+                            location=parts[2] if len(parts) > 2 else "",
+                            emotional_state=parts[3] if len(parts) > 3 else "",
+                            goals=[g.strip() for g in goals if g.strip()],
+                            injuries=[i.strip() for i in injuries if i.strip()]
+                        ))
+
+        return {
+            "success": True,
+            "facts": extracted_facts,
+            "timeline": extracted_timeline,
+            "states": extracted_states,
+            "raw": response
+        }
 
     async def generate_summary(self, project_id: str, chapter: str, content: str) -> ChapterSummary:
         """生成章节摘要"""

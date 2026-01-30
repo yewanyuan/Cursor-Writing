@@ -109,4 +109,67 @@ export const settingsApi = {
     }),
 }
 
+// Export 导出
+export const exportApi = {
+  // 获取导出信息
+  getInfo: (projectId: string) => api.get<{
+    total_words: number
+    chapter_count: number
+    available_formats: string[]
+  }>(`/export/${projectId}/info`),
+
+  // 导出项目
+  export: (projectId: string, format: "txt" | "markdown" | "epub", useFinal: boolean = true) =>
+    api.post(`/export/${projectId}`, { format, use_final: useFinal }, {
+      responseType: "blob"
+    }),
+
+  // 预览导出
+  preview: (projectId: string, format: "txt" | "markdown", useFinal: boolean = true, maxChars: number = 5000) =>
+    api.get<{
+      preview: string
+      total_words: number
+      chapter_count: number
+      truncated: boolean
+    }>(`/export/${projectId}/preview`, {
+      params: { format, use_final: useFinal, max_chars: maxChars }
+    }),
+}
+
+// Statistics 统计
+export const statsApi = {
+  // 获取概览
+  getOverview: (projectId: string) => api.get<{
+    total_words: number
+    total_chapters: number
+    completed_chapters: number
+    draft_chapters: number
+    total_versions: number
+    avg_words_per_chapter: number
+    writing_days: number
+    first_created: string | null
+    last_updated: string | null
+    completion_rate: number
+  }>(`/stats/${projectId}/overview`),
+
+  // 获取字数趋势
+  getTrend: (projectId: string, days: number = 30) => api.get<{
+    date: string
+    words: number
+    daily_words: number
+  }[]>(`/stats/${projectId}/trend`, { params: { days } }),
+
+  // 获取章节进度
+  getProgress: (projectId: string) => api.get<{
+    chapter: string
+    word_count: number
+    status: string
+    version_count: number
+    progress: number
+  }[]>(`/stats/${projectId}/progress`),
+
+  // 获取完整统计
+  getFull: (projectId: string) => api.get(`/stats/${projectId}`),
+}
+
 export default api

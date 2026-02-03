@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { projectApi, cardApi, draftApi, canonApi, exportApi } from "@/api"
 import type { Project, CharacterCard, WorldCard, StyleCard, RulesCard, Draft, Fact, TimelineEvent, CharacterState } from "@/types"
 
@@ -473,6 +474,7 @@ export default function ProjectWorkspace() {
               <Pen className="w-4 h-4 mr-2" />
               开始写作
             </Button>
+            <ThemeToggle />
           </div>
         </div>
       </div>
@@ -755,7 +757,7 @@ export default function ProjectWorkspace() {
                       添加事实
                     </Button>
                   </div>
-                  <ScrollArea className="h-[400px]">
+                  <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
                     <div className="space-y-2">
                       {facts.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
@@ -808,7 +810,7 @@ export default function ProjectWorkspace() {
                       添加事件
                     </Button>
                   </div>
-                  <ScrollArea className="h-[400px]">
+                  <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
                     <div className="space-y-2">
                       {timeline.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
@@ -868,7 +870,7 @@ export default function ProjectWorkspace() {
                       添加状态
                     </Button>
                   </div>
-                  <ScrollArea className="h-[400px]">
+                  <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
                     <div className="space-y-2">
                       {characterStates.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
@@ -907,6 +909,13 @@ export default function ProjectWorkspace() {
                                 {state.emotional_state && <div><span className="text-muted-foreground">情绪:</span> {state.emotional_state}</div>}
                                 {state.goals.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">目标:</span> {state.goals.join(", ")}</div>}
                                 {state.injuries.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">伤势:</span> {state.injuries.join(", ")}</div>}
+                                {state.inventory && state.inventory.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">持有物品:</span> {state.inventory.join(", ")}</div>}
+                                {state.relationships && Object.keys(state.relationships).length > 0 && (
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">人物关系:</span>{" "}
+                                    {Object.entries(state.relationships).map(([name, rel]) => `${name}(${rel})`).join(", ")}
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -1235,6 +1244,33 @@ export default function ProjectWorkspace() {
                 value={(stateForm.injuries || []).join("\n")}
                 onChange={(e) => setStateForm({ ...stateForm, injuries: e.target.value.split("\n").filter(Boolean) })}
                 placeholder="角色当前的伤势"
+                rows={2}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>持有物品（每行一个）</Label>
+              <Textarea
+                value={(stateForm.inventory || []).join("\n")}
+                onChange={(e) => setStateForm({ ...stateForm, inventory: e.target.value.split("\n").filter(Boolean) })}
+                placeholder="角色当前持有的关键物品"
+                rows={2}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>人物关系（每行一个，格式：角色名:关系）</Label>
+              <Textarea
+                value={Object.entries(stateForm.relationships || {}).map(([k, v]) => `${k}:${v}`).join("\n")}
+                onChange={(e) => {
+                  const relationships: Record<string, string> = {}
+                  e.target.value.split("\n").filter(Boolean).forEach(line => {
+                    const [name, ...rest] = line.split(":")
+                    if (name && rest.length > 0) {
+                      relationships[name.trim()] = rest.join(":").trim()
+                    }
+                  })
+                  setStateForm({ ...stateForm, relationships })
+                }}
+                placeholder="张三:盟友&#10;李四:敌对"
                 rows={2}
               />
             </div>

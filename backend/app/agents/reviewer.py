@@ -69,44 +69,84 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
             context_parts.append(f"【章节目标】{brief.goal}")
             context_parts.append(f"【禁止事项】{', '.join(brief.forbidden)}")
 
-        # 角色设定
+        # 角色设定 - 提取出场角色名用于智能筛选
         char_names = await self.cards.list_characters(project_id)
+        current_characters = []
         for name in char_names[:5]:
             card = await self.cards.get_character(project_id, name)
             if card:
+                current_characters.append(card.name)
                 context_parts.append(
                     f"【{card.name}】性格：{', '.join(card.personality[:3])}，"
+                    f"说话风格：{card.speech_pattern}，"
                     f"边界：{', '.join(card.boundaries[:2]) if card.boundaries else '无'}"
                 )
 
-        # 事实表 - 用于冲突检测
-        facts = await self.canon.get_facts(project_id)
-        facts_for_check = []
+        # 世界观设定
+        world_names = await self.cards.list_world_cards(project_id)
+        for name in world_names[:8]:
+            world = await self.cards.get_world_card(project_id, name)
+            if world:
+                context_parts.append(f"【世界观-{world.category}】{world.name}：{world.description[:150]}")
+
+        # 文风卡
+        style = await self.cards.get_style(project_id)
+        if style:
+            context_parts.append(f"【文风要求】叙事距离：{style.narrative_distance}，节奏：{style.pacing}")
+            if style.sentence_style:
+                context_parts.append(f"【句式要求】{style.sentence_style}")
+            if style.vocabulary:
+                context_parts.append(f"【推荐词汇】{', '.join(style.vocabulary[:15])}")
+            if style.taboo_words:
+                context_parts.append(f"【禁用词汇】{', '.join(style.taboo_words[:15])}")
+
+        # 事实表 - 用于冲突检测（智能筛选：critical全部 + 角色相关 + 高置信度）
+        facts = await self.canon.get_facts_for_review(
+            project_id,
+            chapter,
+            characters=current_characters,
+            limit=50
+        )
         for f in facts:
-            context_parts.append(f"【已知事实】{f.statement}（来源：{f.source}，置信度：{f.confidence}）")
-            facts_for_check.append(f.statement)
+            importance_mark = "⚠️" if f.importance == "critical" else ""
+            context_parts.append(f"【已知事实{importance_mark}】{f.statement}（来源：{f.source}，置信度：{f.confidence}）")
 
-        # 时间线事件 - 用于时序冲突检测
-        timeline = await self.canon.get_timeline(project_id)
-        for event in timeline[-10:]:
-            context_parts.append(f"【时间线】{event.time}：{event.event}（{', '.join(event.participants)}）")
+        # 时间线事件 - 用于时序冲突检测（智能筛选：角色相关优先）
+        timeline = await self.canon.get_timeline_for_review(
+            project_id,
+            chapter,
+            characters=current_characters,
+            limit=30
+        )
+        for event in timeline:
+            context_parts.append(f"【时间线】{event.time}：{event.event}（{', '.join(event.participants)}，来源：{event.source}）")
 
-        # 角色状态 - 用于状态冲突检测
-        states = await self.canon.get_character_states(project_id)
-        for state in states[-5:]:
+        # 角色状态 - 用于状态冲突检测（出场角色的最新状态）
+        states = await self.canon.get_latest_states(project_id, characters=current_characters)
+        for state in states:
             state_desc = f"【{state.character}状态@{state.chapter}】"
             if state.location:
                 state_desc += f"位置：{state.location}，"
             if state.emotional_state:
                 state_desc += f"情绪：{state.emotional_state}，"
             if state.injuries:
-                state_desc += f"伤势：{', '.join(state.injuries)}"
+                state_desc += f"伤势：{', '.join(state.injuries)}，"
+            if state.inventory:
+                state_desc += f"持有物品：{', '.join(state.inventory)}，"
+            if state.relationships:
+                rel_strs = [f"{k}({v})" for k, v in state.relationships.items()]
+                state_desc += f"人物关系：{', '.join(rel_strs)}"
             context_parts.append(state_desc)
 
-        # 规则
+        # 规则（完整）
         rules = await self.cards.get_rules(project_id)
-        if rules and rules.donts:
-            context_parts.append(f"【规则-禁止】{', '.join(rules.donts[:5])}")
+        if rules:
+            if rules.dos:
+                context_parts.append(f"【规则-必须遵守】{', '.join(rules.dos)}")
+            if rules.donts:
+                context_parts.append(f"【规则-禁止】{', '.join(rules.donts)}")
+            if rules.quality_standards:
+                context_parts.append(f"【质量标准】{', '.join(rules.quality_standards)}")
 
         context = "\n".join(context_parts)
 
@@ -116,11 +156,14 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
 {draft.content[:4000]}
 
 请检查：
-1. 是否与设定矛盾
-2. 角色言行是否符合人设
-3. 情节是否合理
-4. 是否完成了章节目标
-5. **重点**：是否与【已知事实】、【时间线】、【角色状态】存在冲突
+1. 是否与角色设定矛盾（性格、说话风格、边界）
+2. 是否与世界观设定矛盾（地理、体系、规则等）
+3. 角色言行是否符合人设
+4. 情节是否合理，是否完成了章节目标
+5. 文风是否符合要求（叙事距离、节奏、句式、是否使用了禁用词汇）
+6. 是否违反了【规则-必须遵守】或【规则-禁止】
+7. 是否达到了【质量标准】
+8. **重点**：是否与【已知事实】、【时间线】、【角色状态】存在冲突
 
 如果发现与已知事实冲突，请在 <conflicts> 中明确指出：
 - 哪个已知事实被违反

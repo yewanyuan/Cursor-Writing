@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { projectApi } from "@/api"
 import type { Project, ProjectCreate } from "@/types"
 
@@ -91,6 +92,7 @@ export default function ProjectList() {
             <p className="text-muted-foreground mt-1">管理你的小说项目</p>
           </div>
           <div className="flex gap-2">
+            <ThemeToggle />
             <Button variant="outline" size="icon" onClick={() => navigate("/settings")}>
               <Settings className="w-4 h-4" />
             </Button>

@@ -42,7 +42,7 @@ class LLMClient:
             if self._has_valid_key(cfg.get("api_key")):
                 self.providers["openai"] = OpenAIProvider(
                     api_key=cfg["api_key"],
-                    model=cfg.get("model", "gpt-5"),
+                    model=cfg.get("model", "gpt-4o"),
                     max_tokens=cfg.get("max_tokens", 4000),
                     temperature=cfg.get("temperature", 0.7)
                 )
@@ -53,7 +53,7 @@ class LLMClient:
             if self._has_valid_key(cfg.get("api_key")):
                 self.providers["anthropic"] = AnthropicProvider(
                     api_key=cfg["api_key"],
-                    model=cfg.get("model", "claude-4-5-sonnet-20241022"),
+                    model=cfg.get("model", "claude-4.5-sonnet"),
                     max_tokens=cfg.get("max_tokens", 4000),
                     temperature=cfg.get("temperature", 0.7)
                 )
@@ -86,6 +86,9 @@ class LLMClient:
     def _has_valid_key(self, key: Optional[str]) -> bool:
         """检查 API Key 是否有效（非占位符）"""
         if not key:
+            return False
+        # 过滤未解析的环境变量占位符 ${...}
+        if key.startswith("${") and key.endswith("}"):
             return False
         placeholders = ["sk-your-", "your-", "xxx", "placeholder"]
         return not any(key.lower().startswith(p) for p in placeholders)

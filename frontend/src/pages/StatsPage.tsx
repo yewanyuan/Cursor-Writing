@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { statsApi } from "@/api"
 
 interface Overview {
@@ -111,6 +112,7 @@ export default function StatsPage() {
                 数据概览与创作分析
               </p>
             </div>
+            <ThemeToggle />
           </div>
         </div>
       </div>

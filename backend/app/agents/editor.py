@@ -65,13 +65,43 @@ class EditorAgent(BaseAgent):
         if not instructions:
             instructions.append("请润色文字，提升可读性")
 
-        # 收集角色信息
+        # 收集参考信息
         context_parts = []
+
+        # 角色信息
         char_names = await self.cards.list_characters(project_id)
         for name in char_names[:5]:
             card = await self.cards.get_character(project_id, name)
             if card:
-                context_parts.append(f"【{card.name}】{card.identity}，说话风格：{card.speech_pattern}")
+                context_parts.append(
+                    f"【{card.name}】{card.identity}，性格：{', '.join(card.personality[:3])}，说话风格：{card.speech_pattern}"
+                )
+
+        # 世界观设定
+        world_names = await self.cards.list_world_cards(project_id)
+        for name in world_names[:6]:
+            world = await self.cards.get_world_card(project_id, name)
+            if world:
+                context_parts.append(f"【世界观-{world.category}】{world.name}：{world.description[:100]}")
+
+        # 文风卡
+        style = await self.cards.get_style(project_id)
+        if style:
+            context_parts.append(f"【文风】叙事距离：{style.narrative_distance}，节奏：{style.pacing}")
+            if style.sentence_style:
+                context_parts.append(f"【句式】{style.sentence_style}")
+            if style.vocabulary:
+                context_parts.append(f"【推荐词汇】{', '.join(style.vocabulary[:15])}")
+            if style.taboo_words:
+                context_parts.append(f"【禁用词汇】{', '.join(style.taboo_words[:10])}")
+
+        # 规则卡（完整）
+        rules = await self.cards.get_rules(project_id)
+        if rules:
+            if rules.dos:
+                context_parts.append(f"【必须遵守】{', '.join(rules.dos[:5])}")
+            if rules.donts:
+                context_parts.append(f"【禁止事项】{', '.join(rules.donts[:5])}")
 
         context = "\n".join(context_parts)
 

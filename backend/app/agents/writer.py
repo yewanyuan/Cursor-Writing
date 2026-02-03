@@ -72,10 +72,25 @@ class WriterAgent(BaseAgent):
                         f"说话风格：{card.speech_pattern}"
                     )
 
+        # 世界观设定
+        world_names = await self.cards.list_world_cards(project_id)
+        for name in world_names[:8]:  # 取前8个世界观设定
+            world = await self.cards.get_world_card(project_id, name)
+            if world:
+                context_parts.append(f"【世界观-{world.category}】{world.name}：{world.description[:150]}")
+
         # 文风卡
         style = await self.cards.get_style(project_id)
-        if style and style.example_passages:
-            context_parts.append(f"【范文参考】{style.example_passages[0][:200]}")
+        if style:
+            if style.example_passages:
+                # 使用前两个范文片段
+                for i, passage in enumerate(style.example_passages[:2]):
+                    context_parts.append(f"【范文{i+1}】{passage[:300]}")
+            # 添加词汇偏好
+            if style.vocabulary:
+                context_parts.append(f"【推荐词汇】{', '.join(style.vocabulary[:20])}")
+            if style.taboo_words:
+                context_parts.append(f"【禁用词汇】{', '.join(style.taboo_words[:15])}")
 
         # 前文摘要
         summaries = await self.drafts.get_previous_summaries(project_id, chapter, limit=3)
@@ -156,8 +171,15 @@ class WriterAgent(BaseAgent):
             card = await self.cards.get_character(project_id, name)
             if card:
                 context_parts.append(
-                    f"【{card.name}】{card.identity}，性格：{', '.join(card.personality[:3])}"
+                    f"【{card.name}】{card.identity}，性格：{', '.join(card.personality[:3])}，说话风格：{card.speech_pattern}"
                 )
+
+        # 世界观设定
+        world_names = await self.cards.list_world_cards(project_id)
+        for name in world_names[:6]:
+            world = await self.cards.get_world_card(project_id, name)
+            if world:
+                context_parts.append(f"【世界观-{world.category}】{world.name}：{world.description[:100]}")
 
         # 文风卡
         style = await self.cards.get_style(project_id)
@@ -165,33 +187,60 @@ class WriterAgent(BaseAgent):
             context_parts.append(f"【文风】叙事距离：{style.narrative_distance}，节奏：{style.pacing}")
             if style.sentence_style:
                 context_parts.append(f"【句式】{style.sentence_style}")
+            if style.vocabulary:
+                context_parts.append(f"【推荐词汇】{', '.join(style.vocabulary[:15])}")
+            if style.taboo_words:
+                context_parts.append(f"【禁用词汇】{', '.join(style.taboo_words[:10])}")
 
-        # 规则
+        # 规则卡（完整）
         rules = await self.cards.get_rules(project_id)
-        if rules and rules.donts:
-            context_parts.append(f"【禁止事项】{', '.join(rules.donts[:3])}")
+        if rules:
+            if rules.dos:
+                context_parts.append(f"【必须遵守】{', '.join(rules.dos[:5])}")
+            if rules.donts:
+                context_parts.append(f"【禁止事项】{', '.join(rules.donts[:5])}")
+            if rules.quality_standards:
+                context_parts.append(f"【质量标准】{', '.join(rules.quality_standards[:3])}")
 
-        # 自动注入：已知事实（保持一致性）
-        facts = await self.canon.get_facts(project_id)
-        for f in facts[-10:]:
-            context_parts.append(f"【已知事实】{f.statement}")
+        # 智能注入：已知事实（按章节排序，智能筛选）
+        # 提取当前出场角色
+        current_characters = [name for name in char_names[:5]]
+        facts = await self.canon.get_facts_for_writing(
+            project_id,
+            chapter,
+            characters=current_characters,
+            limit=20
+        )
+        for f in facts:
+            importance_mark = "⚠️" if f.importance == "critical" else ""
+            context_parts.append(f"【已知事实{importance_mark}】{f.statement}（来源：{f.source}）")
 
-        # 自动注入：角色最新状态
-        states = await self.canon.get_character_states(project_id)
-        seen_chars = set()
-        for state in reversed(states):
-            if state.character not in seen_chars:
-                seen_chars.add(state.character)
-                state_desc = f"【{state.character}当前状态】"
-                if state.location:
-                    state_desc += f"位于{state.location}，"
-                if state.emotional_state:
-                    state_desc += f"情绪{state.emotional_state}，"
-                if state.injuries:
-                    state_desc += f"伤势：{', '.join(state.injuries)}"
-                context_parts.append(state_desc)
-            if len(seen_chars) >= 5:
-                break
+        # 智能注入：时间线事件
+        timeline = await self.canon.get_timeline_for_writing(
+            project_id,
+            chapter,
+            characters=current_characters,
+            limit=10
+        )
+        for event in timeline:
+            context_parts.append(f"【时间线】{event.time}：{event.event}")
+
+        # 智能注入：角色最新状态（只取出场角色）
+        states = await self.canon.get_latest_states(project_id, characters=current_characters)
+        for state in states:
+            state_desc = f"【{state.character}当前状态】"
+            if state.location:
+                state_desc += f"位于{state.location}，"
+            if state.emotional_state:
+                state_desc += f"情绪{state.emotional_state}，"
+            if state.injuries:
+                state_desc += f"伤势：{', '.join(state.injuries)}，"
+            if state.inventory:
+                state_desc += f"持有：{', '.join(state.inventory)}，"
+            if state.relationships:
+                rel_strs = [f"{k}({v})" for k, v in state.relationships.items()]
+                state_desc += f"关系：{', '.join(rel_strs)}"
+            context_parts.append(state_desc)
 
         context = "\n".join(context_parts)
 

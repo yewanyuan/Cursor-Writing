@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { settingsApi } from "@/api"
 import type {
   ProviderInfo,
@@ -103,8 +104,8 @@ export default function SettingsPage() {
     setTestResult(null)
 
     try {
-      // Only send the API key if it's not masked
-      const apiKey = providerConfig.api_key.startsWith("*") ? "" : providerConfig.api_key
+      // Send the API key as-is; backend will read real key from config if masked or empty
+      const apiKey = providerConfig.api_key || ""
       const res = await settingsApi.testConnection(
         providerId,
         apiKey,
@@ -169,7 +170,9 @@ export default function SettingsPage() {
               <p className="text-muted-foreground">配置 LLM 提供商和智能体参数</p>
             </div>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button onClick={handleSave} disabled={saving}>
             {saving ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
@@ -177,6 +180,7 @@ export default function SettingsPage() {
             )}
             保存设置
           </Button>
+          </div>
         </div>
 
         {/* Status message */}
@@ -305,21 +309,41 @@ export default function SettingsPage() {
                   <div className="grid gap-2">
                     <Label>模型</Label>
                     {provider.models.length > 0 ? (
-                      <Select
-                        value={providerSettings[provider.id]?.model || ""}
-                        onValueChange={(v) => updateProviderSetting(provider.id, "model", v)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择模型" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {provider.models.map((model) => (
-                            <SelectItem key={model} value={model}>
-                              {model}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <>
+                        <Select
+                          value={provider.models.includes(providerSettings[provider.id]?.model || "")
+                            ? providerSettings[provider.id]?.model
+                            : "__custom__"}
+                          onValueChange={(v) => {
+                            if (v !== "__custom__") {
+                              updateProviderSetting(provider.id, "model", v)
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="选择模型" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {provider.models.map((model) => (
+                              <SelectItem key={model} value={model}>
+                                {model}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="__custom__">自定义模型...</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {(!provider.models.includes(providerSettings[provider.id]?.model || "") ||
+                          providerSettings[provider.id]?.model === "") && (
+                          <Input
+                            value={providerSettings[provider.id]?.model || ""}
+                            onChange={(e) =>
+                              updateProviderSetting(provider.id, "model", e.target.value)
+                            }
+                            placeholder="输入自定义模型名称"
+                            className="mt-2"
+                          />
+                        )}
+                      </>
                     ) : (
                       <Input
                         value={providerSettings[provider.id]?.model || ""}

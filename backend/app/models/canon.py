@@ -12,6 +12,8 @@ class Fact(BaseModel):
     statement: str               # 事实陈述
     source: str = ""             # 来源章节
     confidence: float = 1.0      # 置信度 0-1
+    characters: List[str] = Field(default_factory=list)  # 相关角色
+    importance: str = "normal"   # 重要性: critical / normal / minor
 
 
 class TimelineEvent(BaseModel):

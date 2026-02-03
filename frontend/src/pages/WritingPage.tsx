@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { projectApi, cardApi, sessionApi, draftApi } from "@/api"
 import type { Project, CharacterCard, SessionStatus } from "@/types"
 
@@ -346,6 +347,7 @@ export default function WritingPage() {
             <Save className="w-4 h-4 mr-1" />
             保存
           </Button>
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="icon"

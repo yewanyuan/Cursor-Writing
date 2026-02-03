@@ -4,44 +4,50 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    /* Cupcake Theme - 清新可爱风格 */
+    --background: 30 33% 98%;          /* #faf7f5 奶白色背景 */
+    --foreground: 279 55% 14%;         /* #291334 深紫文字 */
+    --card: 30 29% 97%;                /* #faf7f5 卡片背景 */
+    --card-foreground: 279 55% 14%;
+    --popover: 30 29% 97%;
+    --popover-foreground: 279 55% 14%;
+    --primary: 180 43% 59%;            /* #65c3c8 青绿色主色 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 340 60% 78%;          /* #ef9fbc 粉色次要色 */
+    --secondary-foreground: 279 55% 14%;
+    --muted: 30 20% 92%;               /* #efeae6 浅米色 */
+    --muted-foreground: 279 20% 40%;
+    --accent: 41 85% 58%;              /* #eeaf3a 金黄色强调 */
+    --accent-foreground: 279 55% 14%;
+    --destructive: 0 72% 51%;          /* 红色警告 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 15% 88%;              /* #e7e2df 边框色 */
+    --input: 30 15% 88%;
+    --ring: 180 43% 59%;               /* 与主色一致 */
+    --radius: 0.75rem;                 /* 稍大圆角更可爱 */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Cupcake Dark - 保持温暖感的深色主题 */
+    --background: 280 30% 12%;         /* 深紫背景 */
+    --foreground: 30 33% 96%;          /* 奶白文字 */
+    --card: 280 25% 16%;
+    --card-foreground: 30 33% 96%;
+    --popover: 280 25% 16%;
+    --popover-foreground: 30 33% 96%;
+    --primary: 180 43% 55%;            /* 青绿色 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 340 45% 55%;          /* 粉色 */
+    --secondary-foreground: 30 33% 96%;
+    --muted: 280 20% 22%;
+    --muted-foreground: 30 15% 65%;
+    --accent: 41 75% 50%;              /* 金黄色 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 280 20% 25%;
+    --input: 280 20% 25%;
+    --ring: 180 43% 55%;
   }
 }
 

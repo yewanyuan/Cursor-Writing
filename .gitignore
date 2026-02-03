@@ -41,6 +41,10 @@ build/
 .DS_Store
 Thumbs.db
 
-README.md
+# PID files
+.pids/
+
+# Node
+node_modules/
 
 

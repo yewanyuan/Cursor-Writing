@@ -3,6 +3,7 @@
 """
 
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -141,11 +142,17 @@ class DraftStorage(BaseStorage):
         path = self._chapter_dir(project_id, chapter) / f"{version}.md"
         content = await self.read_text(path)
         if content is not None:
+            # 使用文件修改时间作为创建时间
+            created_at = None
+            if path.exists():
+                mtime = path.stat().st_mtime
+                created_at = datetime.fromtimestamp(mtime)
             return Draft(
                 chapter=chapter,
                 version=version,
                 content=content,
-                word_count=count_words(content)
+                word_count=count_words(content),
+                created_at=created_at or datetime.now()
             )
         return None
 

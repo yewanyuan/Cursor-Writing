@@ -59,7 +59,11 @@ class OpenAIProvider(BaseProvider):
     ) -> Dict[str, Any]:
         from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(api_key=self.api_key)
+        # 支持自定义 base_url（用于代理或中转服务）
+        client_kwargs = {"api_key": self.api_key}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+        client = AsyncOpenAI(**client_kwargs)
 
         response = await client.chat.completions.create(
             model=self.model,
@@ -95,7 +99,11 @@ class AnthropicProvider(BaseProvider):
     ) -> Dict[str, Any]:
         from anthropic import AsyncAnthropic
 
-        client = AsyncAnthropic(api_key=self.api_key)
+        # 支持自定义 base_url（用于代理或中转服务）
+        client_kwargs = {"api_key": self.api_key}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+        client = AsyncAnthropic(**client_kwargs)
 
         # Anthropic 格式：system 单独传，其他作为 messages
         system_msg = ""
@@ -130,7 +138,9 @@ class DeepSeekProvider(BaseProvider):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.base_url = "https://api.deepseek.com/v1"
+        # 如果没有配置 base_url，使用默认值
+        if not self.base_url:
+            self.base_url = "https://api.deepseek.com/v1"
 
     @property
     def name(self) -> str:

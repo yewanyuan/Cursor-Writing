@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from app.storage import CardStorage, CanonStorage, DraftStorage
 from app.core.budgeter import get_budgeter
+from app.utils.helpers import estimate_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -269,22 +270,45 @@ class ContextSelector:
         if not context["world"] and world_cards:
             context["world"] = world_cards[:3]
 
-        # 4. 事实 - 使用相似度 + 最近原则
+        # 4. 事实 - 使用 token 预算动态分配，而非硬编码数量
         if all_facts:
-            # 最近 5 条始终包含
-            recent_facts = all_facts[-5:]
-            older_facts = all_facts[:-5] if len(all_facts) > 5 else []
+            # 按优先级排序：critical > normal > minor，然后按时间倒序
+            priority_order = {"critical": 0, "normal": 1, "minor": 2}
+            sorted_facts = sorted(
+                all_facts,
+                key=lambda f: (priority_order.get(f.importance, 1), -all_facts.index(f))
+            )
 
-            # 对较早的事实按相关性排序
-            if older_facts and chapter_goal:
-                fact_docs = [(f, f.statement) for f in older_facts]
-                ranked_facts = self.similarity.rank_by_similarity(chapter_goal, fact_docs, top_k=5)
-                relevant_facts = [item.item for item in ranked_facts if item.score > 0.02]
+            # 使用 token 预算选取事实（预算 2000 tokens）
+            fact_token_budget = 2000
+            selected_facts = []
+            used_tokens = 0
+
+            for fact in sorted_facts:
+                fact_tokens = estimate_tokens(fact.statement)
+                if used_tokens + fact_tokens > fact_token_budget:
+                    break
+                selected_facts.append(fact)
+                used_tokens += fact_tokens
+
+            # 如果按优先级选取的太少，补充最近的事实
+            if len(selected_facts) < 5 and len(all_facts) > len(selected_facts):
+                remaining_budget = fact_token_budget - used_tokens
+                recent_facts = [f for f in all_facts[-10:] if f not in selected_facts]
+                for fact in recent_facts:
+                    fact_tokens = estimate_tokens(fact.statement)
+                    if used_tokens + fact_tokens > fact_token_budget:
+                        break
+                    selected_facts.append(fact)
+                    used_tokens += fact_tokens
+
+            # 对较早的事实按相关性排序（如果有章节目标）
+            if chapter_goal and len(selected_facts) > 5:
+                fact_docs = [(f, f.statement) for f in selected_facts]
+                ranked_facts = self.similarity.rank_by_similarity(chapter_goal, fact_docs, top_k=len(selected_facts))
+                context["facts"] = [item.item for item in ranked_facts]
             else:
-                relevant_facts = []
-
-            # 合并：相关的历史事实 + 最近事实
-            context["facts"] = relevant_facts + recent_facts
+                context["facts"] = selected_facts
 
         # 5. 前文摘要 - 使用相似度 + 距离衰减
         if all_summaries:

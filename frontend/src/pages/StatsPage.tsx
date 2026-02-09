@@ -194,7 +194,7 @@ export default function StatsPage() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2">累计字数</p>
                   <div className="h-32 flex items-end gap-1">
-                    {trend.map((item, i) => (
+                    {trend.map((item) => (
                       <div
                         key={item.date}
                         className="flex-1 bg-primary/20 hover:bg-primary/40 transition-colors rounded-t relative group"

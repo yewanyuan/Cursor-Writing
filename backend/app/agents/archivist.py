@@ -1,6 +1,6 @@
 """
 资料员 Agent
-负责：生成场景简报、提取事实、生成章节摘要
+负责：生成场景简报、提取事实、生成章节摘要、更新本体
 """
 
 import asyncio
@@ -10,12 +10,34 @@ from typing import Dict, Any, List, Optional
 from app.agents.base import BaseAgent
 from app.models.draft import SceneBrief, ChapterSummary
 from app.models.canon import Fact, TimelineEvent, CharacterState
+from app.utils.helpers import split_content_by_paragraphs, get_facts_by_token_budget, smart_truncate_content
+from app.services.ontology_extractor import get_extractor
+from app.storage.ontology import OntologyStorage
 
 logger = logging.getLogger(__name__)
 
 
 class ArchivistAgent(BaseAgent):
     """资料员"""
+
+    def __init__(
+        self,
+        card_storage: "CardStorage" = None,
+        canon_storage: "CanonStorage" = None,
+        draft_storage: "DraftStorage" = None
+    ):
+        # 延迟导入避免循环依赖
+        from app.storage import CardStorage, CanonStorage, DraftStorage
+
+        if card_storage is None:
+            card_storage = CardStorage()
+        if canon_storage is None:
+            canon_storage = CanonStorage()
+        if draft_storage is None:
+            draft_storage = DraftStorage()
+
+        super().__init__(card_storage, canon_storage, draft_storage)
+        self.ontology_storage = OntologyStorage()
 
     @property
     def name(self) -> str:
@@ -84,6 +106,13 @@ class ArchivistAgent(BaseAgent):
         # 收集上下文
         context_parts = []
 
+        # 本体上下文（优先使用结构化数据）
+        ontology_context = await self.ontology_storage.get_writing_context(
+            project_id, characters=characters, token_budget=2000
+        )
+        if ontology_context.strip():
+            context_parts.append(f"【本体上下文】\n{ontology_context}")
+
         # 角色卡
         for card in char_cards:
             if card:
@@ -98,8 +127,9 @@ class ArchivistAgent(BaseAgent):
         for s in summaries:
             context_parts.append(f"【{s.chapter}摘要】{s.summary}")
 
-        # 最近事实
-        for f in facts[-10:]:
+        # 最近事实（使用 token 预算动态分配，而非硬编码数量）
+        selected_facts = get_facts_by_token_budget(facts, token_budget=1500)
+        for f in selected_facts:
             context_parts.append(f"【事实】{f.statement}")
 
         context = "\n".join(context_parts)
@@ -145,12 +175,120 @@ forbidden:
         return {"success": True, "brief": brief, "raw": brief_text}
 
     async def extract_facts(self, project_id: str, chapter: str, content: str) -> Dict[str, Any]:
-        """从章节内容提取事实、时间线事件、角色状态"""
+        """从章节内容提取事实、时间线事件、角色状态（支持长文本分段处理）"""
+
+        # 分段处理长文本
+        chunks = split_content_by_paragraphs(content, chunk_size=3000, overlap=200)
+
+        all_facts: List[Fact] = []
+        all_timeline: List[TimelineEvent] = []
+        all_states: List[CharacterState] = []
+        all_raw_responses: List[str] = []
+
+        for i, chunk in enumerate(chunks):
+            chunk_info = f"（第 {i + 1}/{len(chunks)} 部分）" if len(chunks) > 1 else ""
+
+            result = await self._extract_facts_from_chunk(
+                chapter=chapter,
+                chunk=chunk,
+                chunk_info=chunk_info
+            )
+
+            all_facts.extend(result["facts"])
+            all_timeline.extend(result["timeline"])
+            all_states.extend(result["states"])
+            all_raw_responses.append(result["raw"])
+
+        # 去重合并（相同事实描述只保留一个）
+        unique_facts = self._deduplicate_facts(all_facts)
+        unique_timeline = self._deduplicate_timeline(all_timeline)
+        # 角色状态取最后出现的（代表章节结束时的状态）
+        unique_states = self._merge_states(all_states)
+
+        # 同步更新本体（在提取事实后自动更新结构化本体）
+        ontology_stats = {}
+        try:
+            extractor = get_extractor()
+            # 提取出场角色名
+            characters = list(set(
+                char for state in unique_states for char in [state.character]
+            ))
+            ontology_stats = await extractor.extract_and_update(
+                project_id=project_id,
+                chapter=chapter,
+                content=content,
+                characters=characters
+            )
+            logger.info(f"本体更新完成: {ontology_stats}")
+        except Exception as e:
+            logger.warning(f"本体更新失败（不影响事实提取）: {e}")
+
+        return {
+            "success": True,
+            "facts": unique_facts,
+            "timeline": unique_timeline,
+            "states": unique_states,
+            "raw": "\n---\n".join(all_raw_responses),
+            "chunks_processed": len(chunks),
+            "ontology_stats": ontology_stats
+        }
+
+    def _deduplicate_facts(self, facts: List[Fact]) -> List[Fact]:
+        """事实去重：基于语句相似度"""
+        if not facts:
+            return []
+
+        unique = []
+        seen_statements = set()
+
+        for fact in facts:
+            # 简单去重：完全相同的语句
+            normalized = fact.statement.strip().lower()
+            if normalized not in seen_statements:
+                seen_statements.add(normalized)
+                unique.append(fact)
+
+        return unique
+
+    def _deduplicate_timeline(self, events: List[TimelineEvent]) -> List[TimelineEvent]:
+        """时间线去重"""
+        if not events:
+            return []
+
+        unique = []
+        seen = set()
+
+        for event in events:
+            key = (event.time, event.event.strip().lower())
+            if key not in seen:
+                seen.add(key)
+                unique.append(event)
+
+        return unique
+
+    def _merge_states(self, states: List[CharacterState]) -> List[CharacterState]:
+        """合并角色状态：同一角色保留最后出现的状态"""
+        if not states:
+            return []
+
+        state_map: Dict[str, CharacterState] = {}
+        for state in states:
+            state_map[state.character] = state  # 后出现的覆盖先出现的
+
+        return list(state_map.values())
+
+    async def _extract_facts_from_chunk(
+        self,
+        chapter: str,
+        chunk: str,
+        chunk_info: str = ""
+    ) -> Dict[str, Any]:
+        """从单个文本块提取事实"""
         prompt = f"""从以下章节内容中提取**对后续写作有参考价值**的关键信息：
 
-章节：{chapter}
+章节：{chapter}{chunk_info}
 
-{content[:3000]}
+{chunk}
 
 ## 提取原则（重要！）
 
@@ -298,10 +436,13 @@ STATE|角色名|位置|情绪状态|目标1,目标2|伤势1,伤势2|物品1,物�
         }
 
     async def generate_summary(self, project_id: str, chapter: str, content: str) -> ChapterSummary:
-        """生成章节摘要"""
+        """生成章节摘要（使用智能截断保留首尾和中间）"""
+        # 使用智能截断而非简单的前 N 字符截断
+        truncated_content = smart_truncate_content(content, budget=4000)
+
         prompt = f"""为以下章节生成摘要：
 
-{content[:4000]}
+{truncated_content}
 
 输出格式：
 <summary>

@@ -13,6 +13,14 @@ from app.utils.helpers import generate_id
 class CanonStorage(BaseStorage):
     """事实表存储"""
 
+    def __init__(self, data_dir: str = None):
+        """初始化事实表存储，如果没有指定 data_dir 则使用配置中的默认值"""
+        if data_dir is None:
+            from app.config import get_config
+            config = get_config()
+            data_dir = str(config.data_dir)
+        super().__init__(data_dir)
+
     # ========== 章节排序工具 ==========
 
     def _chapter_sort_key(self, chapter: str) -> tuple:

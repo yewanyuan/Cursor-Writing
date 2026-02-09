@@ -8,12 +8,18 @@ from typing import Dict, Any, List
 
 from app.agents.base import BaseAgent
 from app.models.draft import Review, ReviewIssue
+from app.utils.helpers import smart_truncate_content
+from app.storage.ontology import OntologyStorage
 
 logger = logging.getLogger(__name__)
 
 
 class ReviewerAgent(BaseAgent):
     """审稿人"""
+
+    def __init__(self):
+        super().__init__()
+        self.ontology_storage = OntologyStorage()
 
     @property
     def name(self) -> str:
@@ -62,6 +68,13 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
 
         # 收集参考信息
         context_parts = []
+
+        # 本体上下文（结构化数据，更高效的一致性检查）
+        ontology_context = await self.ontology_storage.get_review_context(
+            project_id, characters=None, token_budget=3000
+        )
+        if ontology_context.strip():
+            context_parts.append(f"【本体上下文（核心约束）】\n{ontology_context}")
 
         # 场景简报
         brief = await self.drafts.get_brief(project_id, chapter)
@@ -150,10 +163,13 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
 
         context = "\n".join(context_parts)
 
+        # 使用智能截断，保留首尾和中间采样，避免只看到开头
+        truncated_draft = smart_truncate_content(draft.content, budget=4000)
+
         # 审核（包含冲突检测）
         prompt = f"""请审核以下草稿，特别注意与已知事实的冲突：
 
-{draft.content[:4000]}
+{truncated_draft}
 
 请检查：
 1. 是否与角色设定矛盾（性格、说话风格、边界）
@@ -235,6 +251,24 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
 
         summary = self.parse_xml_tag(response, "summary") or "审核完成"
 
+        # 程序化规则校验（补充 LLM 审稿）
+        programmatic_issues = self._programmatic_check(
+            content=draft.content,
+            style=style,
+            rules=rules,
+            brief=brief,
+            characters=current_characters,
+            target_words=brief.target_words if brief and hasattr(brief, "target_words") else 0
+        )
+
+        # 合并程序化校验发现的问题（放在最前面，因为这些是确定性问题）
+        if programmatic_issues:
+            issues = programmatic_issues + issues
+            # 如果有 major 级别的程序化问题，也要降低评分
+            major_count = sum(1 for i in programmatic_issues if i.severity == "major")
+            if major_count > 0:
+                score = min(score, 0.7 - major_count * 0.1)
+
         review = Review(
             chapter=chapter,
             draft_version=draft.version,
@@ -252,3 +286,110 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
             "conflict_count": len(conflicts),
             "raw": response
         }
+
+    def _programmatic_check(
+        self,
+        content: str,
+        style: Any,
+        rules: Any,
+        brief: Any,
+        characters: List[str],
+        target_words: int = 0
+    ) -> List[ReviewIssue]:
+        """
+        程序化规则校验：检查确定性规则，作为 LLM 审稿的补充
+
+        这些检查不依赖 LLM 的判断，是 100% 确定的规则违反
+        """
+        issues = []
+
+        # 1. 禁用词汇检查
+        if style and style.taboo_words:
+            for word in style.taboo_words:
+                if word and word in content:
+                    # 统计出现次数
+                    count = content.count(word)
+                    issues.append(ReviewIssue(
+                        category="style",
+                        severity="major",
+                        problem=f"使用了禁用词汇「{word}」（出现 {count} 次）",
+                        suggestion=f"请替换或删除禁用词汇「{word}」"
+                    ))
+
+        # 2. 规则卡-禁止事项检查（精确匹配关键词）
+        if rules and rules.donts:
+            for dont in rules.donts:
+                # 提取关键词（去掉"不要"、"禁止"等前缀）
+                keywords = self._extract_keywords_from_rule(dont)
+                for keyword in keywords:
+                    if keyword and len(keyword) >= 2 and keyword in content:
+                        issues.append(ReviewIssue(
+                            category="rules",
+                            severity="major",
+                            problem=f"可能违反禁止规则「{dont}」（检测到关键词：{keyword}）",
+                            suggestion=f"请检查是否违反了「{dont}」这条规则"
+                        ))
+
+        # 3. 字数检查（如果有目标字数）
+        if target_words > 0:
+            actual_words = len(content)
+            if actual_words < target_words * 0.7:
+                issues.append(ReviewIssue(
+                    category="plot",
+                    severity="minor",
+                    problem=f"字数不足：目标 {target_words} 字，实际 {actual_words} 字（{actual_words*100//target_words}%）",
+                    suggestion="考虑扩展情节或增加细节描写"
+                ))
+            elif actual_words > target_words * 1.5:
+                issues.append(ReviewIssue(
+                    category="plot",
+                    severity="minor",
+                    problem=f"字数超标：目标 {target_words} 字，实际 {actual_words} 字（{actual_words*100//target_words}%）",
+                    suggestion="考虑精简内容或拆分章节"
+                ))
+
+        # 4. 出场角色检查（设定出场但未在文中提及）
+        if characters and brief:
+            brief_characters = [c.get("name", "") for c in (brief.characters or [])] if hasattr(brief, "characters") else []
+            for char_name in brief_characters:
+                if char_name and char_name not in content:
+                    issues.append(ReviewIssue(
+                        category="character",
+                        severity="minor",
+                        problem=f"角色「{char_name}」设定出场但未在文中出现",
+                        suggestion=f"请确认是否需要「{char_name}」出场，或在文中添加该角色"
+                    ))
+
+        # 5. 基础格式检查
+        # 检查是否有大段重复内容（可能是粘贴错误）
+        paragraphs = content.split('\n\n')
+        seen_paragraphs = set()
+        for para in paragraphs:
+            para_normalized = para.strip()
+            if len(para_normalized) > 50:  # 只检查较长的段落
+                if para_normalized in seen_paragraphs:
+                    issues.append(ReviewIssue(
+                        category="consistency",
+                        severity="major",
+                        problem="检测到重复段落",
+                        suggestion="请检查是否有误粘贴的重复内容"
+                    ))
+                    break  # 只报告一次
+                seen_paragraphs.add(para_normalized)
+
+        return issues
+
+    def _extract_keywords_from_rule(self, rule: str) -> List[str]:
+        """从规则描述中提取关键词"""
+        # 移除常见的规则前缀
+        prefixes = ["不要", "禁止", "不能", "不可以", "避免", "不得"]
+        cleaned = rule
+        for prefix in prefixes:
+            if cleaned.startswith(prefix):
+                cleaned = cleaned[len(prefix):]
+                break
+
+        # 提取名词性关键词（简单实现：提取2-4字的词）
+        import re
+        keywords = re.findall(r'[\u4e00-\u9fff]{2,4}', cleaned)
+        return keywords[:3]  # 最多返回3个关键词

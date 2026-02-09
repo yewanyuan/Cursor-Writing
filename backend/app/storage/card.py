@@ -13,6 +13,14 @@ from app.utils.helpers import sanitize_filename
 class CardStorage(BaseStorage):
     """卡片存储"""
 
+    def __init__(self, data_dir: str = None):
+        """初始化卡片存储，如果没有指定 data_dir 则使用配置中的默认值"""
+        if data_dir is None:
+            from app.config import get_config
+            config = get_config()
+            data_dir = str(config.data_dir)
+        super().__init__(data_dir)
+
     # ========== 角色卡 ==========
 
     async def list_characters(self, project_id: str) -> List[str]:

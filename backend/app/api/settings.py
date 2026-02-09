@@ -213,21 +213,24 @@ async def test_connection(provider: str, api_key: str, base_url: Optional[str] =
                 api_key=api_key,
                 model=model or "gpt-4o",
                 max_tokens=100,
-                temperature=0.7
+                temperature=0.7,
+                base_url=base_url
             )
         elif provider == "anthropic":
             llm = AnthropicProvider(
                 api_key=api_key,
                 model=model or "claude-3-5-sonnet-20241022",
                 max_tokens=100,
-                temperature=0.7
+                temperature=0.7,
+                base_url=base_url
             )
         elif provider == "deepseek":
             llm = DeepSeekProvider(
                 api_key=api_key,
                 model=model or "deepseek-chat",
                 max_tokens=100,
-                temperature=0.7
+                temperature=0.7,
+                base_url=base_url
             )
         elif provider == "custom":
             if not base_url:

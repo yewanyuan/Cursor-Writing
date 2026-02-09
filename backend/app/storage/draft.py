@@ -15,6 +15,14 @@ from app.utils.helpers import count_words
 class DraftStorage(BaseStorage):
     """草稿存储"""
 
+    def __init__(self, data_dir: str = None):
+        """初始化草稿存储，如果没有指定 data_dir 则使用配置中的默认值"""
+        if data_dir is None:
+            from app.config import get_config
+            config = get_config()
+            data_dir = str(config.data_dir)
+        super().__init__(data_dir)
+
     def _chapter_dir(self, project_id: str, chapter: str) -> Path:
         """获取章节目录"""
         return self._get_project_dir(project_id) / "drafts" / chapter
@@ -156,12 +164,28 @@ class DraftStorage(BaseStorage):
             )
         return None
 
-    async def save_draft(self, project_id: str, draft: Draft) -> Draft:
-        """保存草稿"""
+    async def save_draft(self, project_id: str, draft: Draft, max_versions: int = 10) -> Draft:
+        """保存草稿，并限制版本数量"""
         draft.word_count = count_words(draft.content)
         path = self._chapter_dir(project_id, draft.chapter) / f"{draft.version}.md"
         await self.write_text(path, draft.content)
+
+        # 清理旧版本，保留最新的 max_versions 个
+        await self._cleanup_old_versions(project_id, draft.chapter, max_versions)
+
         return draft
+
+    async def _cleanup_old_versions(self, project_id: str, chapter: str, max_versions: int) -> None:
+        """清理旧版本，只保留最新的 max_versions 个"""
+        versions = await self.list_versions(project_id, chapter)
+        if len(versions) > max_versions:
+            # versions 已按版本号排序，删除最旧的
+            to_delete = versions[:-max_versions]
+            chapter_dir = self._chapter_dir(project_id, chapter)
+            for version in to_delete:
+                path = chapter_dir / f"{version}.md"
+                if path.exists():
+                    path.unlink()
 
     async def get_latest_draft(self, project_id: str, chapter: str) -> Optional[Draft]:
         """获取最新版本草稿"""

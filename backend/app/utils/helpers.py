@@ -134,3 +134,135 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     if len(text) <= max_length:
         return text
     return text[:max_length - len(suffix)] + suffix
+
+
+def split_content_by_paragraphs(content: str, chunk_size: int = 3000, overlap: int = 200) -> list[str]:
+    """
+    按段落边界分割长文本，避免切断句子
+
+    Args:
+        content: 原始文本
+        chunk_size: 每段目标大小
+        overlap: 段落间重叠字符数（保证上下文连贯）
+
+    Returns:
+        分割后的文本块列表
+    """
+    if len(content) <= chunk_size:
+        return [content]
+
+    chunks = []
+    paragraphs = content.split('\n\n')  # 按双换行分段
+
+    current_chunk = ""
+    for para in paragraphs:
+        # 如果当前段落本身就超长，需要按句子分割
+        if len(para) > chunk_size:
+            # 先保存之前的内容
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = ""
+
+            # 按句子分割超长段落
+            sentences = re.split(r'([。！？.!?]+)', para)
+            temp = ""
+            for i in range(0, len(sentences), 2):
+                sentence = sentences[i]
+                punct = sentences[i + 1] if i + 1 < len(sentences) else ""
+                full_sentence = sentence + punct
+
+                if len(temp) + len(full_sentence) > chunk_size:
+                    if temp:
+                        chunks.append(temp.strip())
+                    temp = full_sentence
+                else:
+                    temp += full_sentence
+
+            if temp:
+                current_chunk = temp
+        else:
+            # 正常段落处理
+            if len(current_chunk) + len(para) + 2 > chunk_size:
+                chunks.append(current_chunk.strip())
+                # 保留一部分重叠内容
+                if overlap > 0 and len(current_chunk) > overlap:
+                    current_chunk = current_chunk[-overlap:] + "\n\n" + para
+                else:
+                    current_chunk = para
+            else:
+                current_chunk = current_chunk + "\n\n" + para if current_chunk else para
+
+    if current_chunk.strip():
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
+
+def smart_truncate_content(content: str, budget: int = 4000) -> str:
+    """
+    智能截断：保留首尾和中间采样，适用于审稿等需要全局视角的场景
+
+    Args:
+        content: 原始文本
+        budget: 总字符预算
+
+    Returns:
+        截断后的文本，包含首部、中部采样、尾部
+    """
+    if len(content) <= budget:
+        return content
+
+    # 分配预算：首部 40%，中间 20%，尾部 40%
+    head_budget = int(budget * 0.4)
+    middle_budget = int(budget * 0.2)
+    tail_budget = budget - head_budget - middle_budget
+
+    head = content[:head_budget]
+    tail = content[-tail_budget:]
+
+    # 中间采样：取中间位置的内容
+    mid_start = len(content) // 2 - middle_budget // 2
+    middle = content[mid_start:mid_start + middle_budget]
+
+    return f"{head}\n\n[...中间部分省略，以下为中段采样...]\n\n{middle}\n\n[...省略部分结束，以下为结尾...]\n\n{tail}"
+
+
+def estimate_tokens(text: str) -> int:
+    """
+    粗略估算文本的 token 数量
+
+    Args:
+        text: 文本内容
+
+    Returns:
+        估算的 token 数量
+    """
+    # 中文大约 1.5 字符 = 1 token，英文大约 4 字符 = 1 token
+    chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', text))
+    other_chars = len(text) - chinese_chars
+
+    return int(chinese_chars / 1.5 + other_chars / 4)
+
+
+def get_facts_by_token_budget(facts: list, token_budget: int = 2000) -> list:
+    """
+    在 token 预算内尽可能多取事实
+
+    Args:
+        facts: 事实列表（已按优先级排序）
+        token_budget: token 预算
+
+    Returns:
+        筛选后的事实列表
+    """
+    selected = []
+    used_tokens = 0
+
+    for fact in facts:
+        fact_tokens = estimate_tokens(fact.statement)
+        if used_tokens + fact_tokens > token_budget:
+            break
+        selected.append(fact)
+        used_tokens += fact_tokens
+
+    return selected

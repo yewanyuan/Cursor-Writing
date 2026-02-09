@@ -15,6 +15,7 @@ import {
   WifiOff,
   PenLine,
   Plus,
+  Clock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,6 +69,12 @@ export default function WritingPage() {
   const [continueTargetWords, setContinueTargetWords] = useState(500)
   const [insertPosition, setInsertPosition] = useState<number | null>(null)
   const skipNextDraftLoad = useRef(false)  // 跳过下一次草稿加载（续写后已更新）
+
+  // 自动保存相关状态
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)  // 自动保存开关
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "saving" | "saved">("idle")
+  const [lastSavedContent, setLastSavedContent] = useState("")  // 上次保存的内容，用于检测变化
+  const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const addMessage = useCallback((role: string, content: string) => {
     setMessages((prev) => [...prev, { role, content }])
@@ -190,6 +197,7 @@ export default function WritingPage() {
         try {
           const draftRes = await draftApi.get(projectId, chapterParam)
           setContent(draftRes.data.content)
+          setLastSavedContent(draftRes.data.content)  // 初始化已保存内容
           setChapter(chapterParam)
         } catch {
           // 草稿不存在，忽略
@@ -199,6 +207,65 @@ export default function WritingPage() {
       console.error("Failed to load data:", err)
     }
   }
+
+  // 自动保存函数
+  const performAutoSave = useCallback(async () => {
+    if (!projectId || !content || !chapter) return
+    // 内容没有变化时不保存
+    if (content === lastSavedContent) return
+
+    try {
+      setAutoSaveStatus("saving")
+      await draftApi.save(projectId, {
+        chapter,
+        content,
+        word_count: content.length,
+        status: "draft",
+      })
+      setLastSavedContent(content)
+      setAutoSaveStatus("saved")
+      // 3秒后恢复为 idle 状态
+      setTimeout(() => setAutoSaveStatus("idle"), 3000)
+    } catch (err) {
+      console.error("Auto save failed:", err)
+      setAutoSaveStatus("idle")
+    }
+  }, [projectId, chapter, content, lastSavedContent])
+
+  // 定时自动保存（每30秒）
+  useEffect(() => {
+    // 清理之前的定时器
+    if (autoSaveIntervalRef.current) {
+      clearInterval(autoSaveIntervalRef.current)
+      autoSaveIntervalRef.current = null
+    }
+
+    // 仅在开启时设置定时器
+    if (autoSaveEnabled) {
+      autoSaveIntervalRef.current = setInterval(() => {
+        performAutoSave()
+      }, 30000)  // 30秒
+    }
+
+    return () => {
+      if (autoSaveIntervalRef.current) {
+        clearInterval(autoSaveIntervalRef.current)
+      }
+    }
+  }, [performAutoSave, autoSaveEnabled])
+
+  // 页面离开前提醒（浏览器关闭/刷新时）
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (content && content !== lastSavedContent) {
+        e.preventDefault()
+        e.returnValue = ""
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [content, lastSavedContent])
 
   const startWriting = async () => {
     if (!projectId || !chapter) {
@@ -255,6 +322,7 @@ export default function WritingPage() {
         word_count: content.length,
         status: "draft",
       })
+      setLastSavedContent(content)  // 更新已保存内容
       addMessage("assistant", "保存成功")
     } catch (err) {
       console.error("Failed to save:", err)
@@ -320,6 +388,18 @@ export default function WritingPage() {
     setWriteMode("insert")
   }
 
+  // 检查是否有未保存的内容
+  const hasUnsavedChanges = content && content !== lastSavedContent
+
+  // 返回按钮处理：检查未保存内容
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm("有未保存的内容，确定要离开吗？")
+      if (!confirmed) return
+    }
+    navigate(`/project/${projectId}?tab=drafts`)
+  }
+
   const isWorking = ["briefing", "writing", "reviewing", "editing"].includes(status.status)
   const hasContent = content.length > 0
 
@@ -329,7 +409,7 @@ export default function WritingPage() {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="border-b px-4 py-3 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}?tab=drafts`)}>
+          <Button variant="ghost" size="icon" onClick={handleBack}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex-1">
@@ -346,6 +426,15 @@ export default function WritingPage() {
           <Button variant="outline" size="sm" onClick={handleSave} disabled={!content}>
             <Save className="w-4 h-4 mr-1" />
             保存
+          </Button>
+          <Button
+            variant={autoSaveEnabled ? "default" : "outline"}
+            size="sm"
+            onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
+            title={autoSaveEnabled ? "关闭自动保存" : "开启自动保存"}
+          >
+            <Clock className="w-4 h-4 mr-1" />
+            {autoSaveEnabled ? "自动保存：开" : "自动保存：关"}
           </Button>
           <ThemeToggle />
           <Button
@@ -376,7 +465,24 @@ export default function WritingPage() {
             {status.status === "error" && <XCircle className="w-4 h-4 text-red-500" />}
             <span>{STATUS_TEXT[status.status]}</span>
           </div>
-          <span>{content.length} 字</span>
+          <div className="flex items-center gap-4">
+            {/* 自动保存状态 */}
+            <div className="flex items-center gap-1 text-xs">
+              {autoSaveStatus === "saving" && (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>自动保存中...</span>
+                </>
+              )}
+              {autoSaveStatus === "saved" && (
+                <>
+                  <Clock className="w-3 h-3 text-green-500" />
+                  <span className="text-green-600">已自动保存</span>
+                </>
+              )}
+            </div>
+            <span>{content.length} 字</span>
+          </div>
         </div>
       </div>
 

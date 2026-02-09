@@ -73,12 +73,20 @@ export const canonApi = {
   addFact: (projectId: string, fact: Partial<Fact>) => api.post<Fact>(`/projects/${projectId}/canon/facts`, fact),
   updateFact: (projectId: string, factId: string, fact: Partial<Fact>) => api.put<Fact>(`/projects/${projectId}/canon/facts/${factId}`, fact),
   deleteFact: (projectId: string, factId: string) => api.delete(`/projects/${projectId}/canon/facts/${factId}`),
+  batchDeleteFacts: (projectId: string, ids: string[]) =>
+    api.post<{ success: boolean; deleted_count: number; message: string }>(
+      `/projects/${projectId}/canon/facts/batch-delete`, { ids }
+    ),
 
   // 时间线
   getTimeline: (projectId: string) => api.get<TimelineEvent[]>(`/projects/${projectId}/canon/timeline`),
   addTimelineEvent: (projectId: string, event: Partial<TimelineEvent>) => api.post<TimelineEvent>(`/projects/${projectId}/canon/timeline`, event),
   updateTimelineEvent: (projectId: string, eventId: string, event: Partial<TimelineEvent>) => api.put<TimelineEvent>(`/projects/${projectId}/canon/timeline/${eventId}`, event),
   deleteTimelineEvent: (projectId: string, eventId: string) => api.delete(`/projects/${projectId}/canon/timeline/${eventId}`),
+  batchDeleteTimeline: (projectId: string, ids: string[]) =>
+    api.post<{ success: boolean; deleted_count: number; message: string }>(
+      `/projects/${projectId}/canon/timeline/batch-delete`, { ids }
+    ),
 
   // 角色状态
   getCharacterStates: (projectId: string) => api.get<CharacterState[]>(`/projects/${projectId}/canon/states`),
@@ -88,6 +96,20 @@ export const canonApi = {
     api.put<CharacterState>(`/projects/${projectId}/canon/states/${encodeURIComponent(character)}/${encodeURIComponent(chapter)}`, state),
   deleteCharacterState: (projectId: string, character: string, chapter: string) =>
     api.delete(`/projects/${projectId}/canon/states/${encodeURIComponent(character)}/${encodeURIComponent(chapter)}`),
+  batchDeleteStates: (projectId: string, keys: Array<{ character: string; chapter: string }>) =>
+    api.post<{ success: boolean; deleted_count: number; message: string }>(
+      `/projects/${projectId}/canon/states/batch-delete`, { keys }
+    ),
+
+  // AI 提取
+  extractFromChapter: (projectId: string, chapter: string, content?: string) =>
+    api.post<{
+      success: boolean
+      facts_count: number
+      timeline_count: number
+      states_count: number
+      message: string
+    }>(`/projects/${projectId}/canon/extract`, { chapter, content }),
 
   // 清空
   clear: (projectId: string) => api.delete(`/projects/${projectId}/canon/clear`),

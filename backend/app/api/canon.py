@@ -4,19 +4,72 @@
 
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.models.canon import Fact, TimelineEvent, CharacterState
-from app.storage import CanonStorage
+from app.storage import CanonStorage, DraftStorage
+from app.agents.archivist import ArchivistAgent
 
 router = APIRouter()
 
 _storage = None
+_draft_storage = None
+_archivist = None
 
 def get_storage() -> CanonStorage:
     global _storage
     if _storage is None:
         _storage = CanonStorage("../data")
     return _storage
+
+def get_draft_storage() -> DraftStorage:
+    global _draft_storage
+    if _draft_storage is None:
+        _draft_storage = DraftStorage("../data")
+    return _draft_storage
+
+def get_archivist() -> ArchivistAgent:
+    global _archivist
+    if _archivist is None:
+        _archivist = ArchivistAgent()
+    return _archivist
+
+
+class ExtractRequest(BaseModel):
+    """AI 提取请求"""
+    chapter: str
+    content: Optional[str] = None  # 如果不提供，从草稿读取
+
+
+class ExtractResponse(BaseModel):
+    """AI 提取响应"""
+    success: bool
+    facts_count: int = 0
+    timeline_count: int = 0
+    states_count: int = 0
+    message: str = ""
+
+
+class BatchDeleteFactsRequest(BaseModel):
+    """批量删除事实请求"""
+    ids: List[str]
+
+
+class BatchDeleteTimelineRequest(BaseModel):
+    """批量删除时间线请求"""
+    ids: List[str]
+
+
+class BatchDeleteStatesRequest(BaseModel):
+    """批量删除角色状态请求"""
+    keys: List[dict]  # [{"character": "xxx", "chapter": "xxx"}, ...]
+
+
+class BatchDeleteResponse(BaseModel):
+    """批量删除响应"""
+    success: bool
+    deleted_count: int
+    message: str = ""
 
 
 # ===== 事实 (Facts) =====
@@ -84,6 +137,36 @@ async def delete_fact(project_id: str, fact_id: str):
     return {"success": True}
 
 
+@router.post("/facts/batch-delete", response_model=BatchDeleteResponse)
+async def batch_delete_facts(project_id: str, req: BatchDeleteFactsRequest):
+    """批量删除事实"""
+    facts = await get_storage().get_facts(project_id)
+    ids_to_delete = set(req.ids)
+    new_facts = [f for f in facts if f.id not in ids_to_delete]
+    deleted_count = len(facts) - len(new_facts)
+
+    if deleted_count == 0:
+        return BatchDeleteResponse(
+            success=True,
+            deleted_count=0,
+            message="没有找到要删除的事实"
+        )
+
+    # 重写文件
+    storage = get_storage()
+    path = storage._get_project_dir(project_id) / "canon" / "facts.jsonl"
+    if path.exists():
+        path.unlink()
+    for f in new_facts:
+        await storage.append_jsonl(path, f.model_dump())
+
+    return BatchDeleteResponse(
+        success=True,
+        deleted_count=deleted_count,
+        message=f"成功删除 {deleted_count} 条事实"
+    )
+
+
 # ===== 时间线 (Timeline) =====
 
 @router.get("/timeline", response_model=List[TimelineEvent])
@@ -138,6 +221,36 @@ async def delete_timeline_event(project_id: str, event_id: str):
     for e in new_events:
         await storage.append_jsonl(path, e.model_dump())
     return {"success": True}
+
+
+@router.post("/timeline/batch-delete", response_model=BatchDeleteResponse)
+async def batch_delete_timeline(project_id: str, req: BatchDeleteTimelineRequest):
+    """批量删除时间线事件"""
+    events = await get_storage().get_timeline(project_id)
+    ids_to_delete = set(req.ids)
+    new_events = [e for e in events if e.id not in ids_to_delete]
+    deleted_count = len(events) - len(new_events)
+
+    if deleted_count == 0:
+        return BatchDeleteResponse(
+            success=True,
+            deleted_count=0,
+            message="没有找到要删除的事件"
+        )
+
+    # 重写文件
+    storage = get_storage()
+    path = storage._get_project_dir(project_id) / "canon" / "timeline.jsonl"
+    if path.exists():
+        path.unlink()
+    for e in new_events:
+        await storage.append_jsonl(path, e.model_dump())
+
+    return BatchDeleteResponse(
+        success=True,
+        deleted_count=deleted_count,
+        message=f"成功删除 {deleted_count} 条时间线事件"
+    )
 
 
 # ===== 角色状态 (Character States) =====
@@ -206,7 +319,152 @@ async def delete_character_state(project_id: str, character: str, chapter: str):
     return {"success": True}
 
 
-# ===== 批量操作 =====
+@router.post("/states/batch-delete", response_model=BatchDeleteResponse)
+async def batch_delete_states(project_id: str, req: BatchDeleteStatesRequest):
+    """批量删除角色状态"""
+    states = await get_storage().get_character_states(project_id)
+
+    # 构建要删除的键集合
+    keys_to_delete = set()
+    for key in req.keys:
+        if "character" in key and "chapter" in key:
+            keys_to_delete.add((key["character"], key["chapter"]))
+
+    new_states = [s for s in states if (s.character, s.chapter) not in keys_to_delete]
+    deleted_count = len(states) - len(new_states)
+
+    if deleted_count == 0:
+        return BatchDeleteResponse(
+            success=True,
+            deleted_count=0,
+            message="没有找到要删除的角色状态"
+        )
+
+    # 重写文件
+    storage = get_storage()
+    path = storage._get_project_dir(project_id) / "canon" / "states.jsonl"
+    if path.exists():
+        path.unlink()
+    for s in new_states:
+        await storage.append_jsonl(path, s.model_dump())
+
+    return BatchDeleteResponse(
+        success=True,
+        deleted_count=deleted_count,
+        message=f"成功删除 {deleted_count} 条角色状态"
+    )
+
+
+# ===== AI 提取 =====
+
+@router.post("/extract", response_model=ExtractResponse)
+async def extract_facts_from_chapter(project_id: str, req: ExtractRequest):
+    """从章节内容中使用 AI 提取事实、时间线、角色状态"""
+    content = req.content
+
+    # 如果没有提供内容，尝试从草稿读取
+    if not content:
+        draft_storage = get_draft_storage()
+        # 优先读取最终稿（get_final 返回的是字符串），其次读取最新草稿
+        final_content = await draft_storage.get_final(project_id, req.chapter)
+        if final_content:
+            content = final_content  # get_final 直接返回字符串
+        else:
+            draft = await draft_storage.get_latest_draft(project_id, req.chapter)
+            if draft:
+                content = draft.content  # get_latest_draft 返回 Draft 对象
+
+    if not content:
+        raise HTTPException(400, f"章节 {req.chapter} 没有可用的内容")
+
+    try:
+        archivist = get_archivist()
+        result = await archivist.extract_facts(project_id, req.chapter, content)
+
+        if not result.get("success"):
+            return ExtractResponse(
+                success=False,
+                message="AI 提取失败"
+            )
+
+        # 获取已有数据用于去重
+        storage = get_storage()
+        existing_facts = await storage.get_facts(project_id)
+        existing_timeline = await storage.get_timeline(project_id)
+        existing_states = await storage.get_character_states(project_id)
+
+        # 构建已有数据的特征集合用于快速查重
+        existing_fact_keys = set()
+        for f in existing_facts:
+            # 使用归一化的语句作为键
+            existing_fact_keys.add(f.statement.strip().lower())
+
+        existing_timeline_keys = set()
+        for e in existing_timeline:
+            # 使用 (时间, 事件描述) 作为键
+            existing_timeline_keys.add((e.time.strip(), e.event.strip().lower()))
+
+        existing_state_keys = set()
+        for s in existing_states:
+            # 使用 (角色, 章节) 作为键
+            existing_state_keys.add((s.character, s.chapter))
+
+        # 过滤出新的条目
+        new_facts = result.get("facts", [])
+        new_timeline = result.get("timeline", [])
+        new_states = result.get("states", [])
+
+        # 去重：只保留不存在的条目
+        unique_new_facts = []
+        for fact in new_facts:
+            key = fact.statement.strip().lower()
+            if key not in existing_fact_keys:
+                unique_new_facts.append(fact)
+                existing_fact_keys.add(key)  # 防止本批次内重复
+
+        unique_new_timeline = []
+        for event in new_timeline:
+            key = (event.time.strip(), event.event.strip().lower())
+            if key not in existing_timeline_keys:
+                unique_new_timeline.append(event)
+                existing_timeline_keys.add(key)
+
+        unique_new_states = []
+        for state in new_states:
+            key = (state.character, state.chapter)
+            if key not in existing_state_keys:
+                unique_new_states.append(state)
+                existing_state_keys.add(key)
+
+        # 保存去重后的条目
+        for fact in unique_new_facts:
+            await storage.add_fact(project_id, fact)
+
+        for event in unique_new_timeline:
+            await storage.add_timeline_event(project_id, event)
+
+        for state in unique_new_states:
+            await storage.update_character_state(project_id, state)
+
+        # 计算跳过的数量
+        skipped_facts = len(new_facts) - len(unique_new_facts)
+        skipped_timeline = len(new_timeline) - len(unique_new_timeline)
+        skipped_states = len(new_states) - len(unique_new_states)
+
+        message = f"成功提取 {len(unique_new_facts)} 条事实、{len(unique_new_timeline)} 条时间线、{len(unique_new_states)} 条角色状态"
+        if skipped_facts > 0 or skipped_timeline > 0 or skipped_states > 0:
+            message += f"（跳过重复：{skipped_facts} 事实、{skipped_timeline} 时间线、{skipped_states} 状态）"
+
+        return ExtractResponse(
+            success=True,
+            facts_count=len(unique_new_facts),
+            timeline_count=len(unique_new_timeline),
+            states_count=len(unique_new_states),
+            message=message
+        )
+
+    except Exception as e:
+        raise HTTPException(500, f"AI 提取失败: {str(e)}")
 
 @router.delete("/clear")
 async def clear_canon(project_id: str):

@@ -44,7 +44,8 @@ class LLMClient:
                     api_key=cfg["api_key"],
                     model=cfg.get("model", "gpt-4o"),
                     max_tokens=cfg.get("max_tokens", 4000),
-                    temperature=cfg.get("temperature", 0.7)
+                    temperature=cfg.get("temperature", 0.7),
+                    base_url=cfg.get("base_url")
                 )
 
         # Anthropic
@@ -55,7 +56,8 @@ class LLMClient:
                     api_key=cfg["api_key"],
                     model=cfg.get("model", "claude-4.5-sonnet"),
                     max_tokens=cfg.get("max_tokens", 4000),
-                    temperature=cfg.get("temperature", 0.7)
+                    temperature=cfg.get("temperature", 0.7),
+                    base_url=cfg.get("base_url")
                 )
 
         # DeepSeek
@@ -66,7 +68,8 @@ class LLMClient:
                     api_key=cfg["api_key"],
                     model=cfg.get("model", "deepseek-chat"),
                     max_tokens=cfg.get("max_tokens", 4000),
-                    temperature=cfg.get("temperature", 0.7)
+                    temperature=cfg.get("temperature", 0.7),
+                    base_url=cfg.get("base_url")
                 )
 
         # Custom

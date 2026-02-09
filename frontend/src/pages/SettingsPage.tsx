@@ -291,19 +291,30 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Base URL (for custom provider) */}
-                  {(provider.id === "custom" || provider.id === "deepseek") && (
-                    <div className="grid gap-2">
-                      <Label>Base URL</Label>
-                      <Input
-                        value={providerSettings[provider.id]?.base_url || ""}
-                        onChange={(e) =>
-                          updateProviderSetting(provider.id, "base_url", e.target.value)
-                        }
-                        placeholder="https://api.example.com/v1"
-                      />
-                    </div>
-                  )}
+                  {/* Base URL (for all providers - supports custom proxy) */}
+                  <div className="grid gap-2">
+                    <Label>
+                      Base URL
+                      <span className="text-xs text-muted-foreground ml-2">
+                        (可选，用于自建代理或中转服务)
+                      </span>
+                    </Label>
+                    <Input
+                      value={providerSettings[provider.id]?.base_url || ""}
+                      onChange={(e) =>
+                        updateProviderSetting(provider.id, "base_url", e.target.value)
+                      }
+                      placeholder={
+                        provider.id === "openai"
+                          ? "https://api.openai.com/v1"
+                          : provider.id === "anthropic"
+                          ? "https://api.anthropic.com"
+                          : provider.id === "deepseek"
+                          ? "https://api.deepseek.com"
+                          : "https://api.example.com/v1"
+                      }
+                    />
+                  </div>
 
                   {/* Model Selection */}
                   <div className="grid gap-2">

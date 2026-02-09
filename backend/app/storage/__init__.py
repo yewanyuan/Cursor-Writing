@@ -8,6 +8,7 @@ from .project import ProjectStorage
 from .card import CardStorage
 from .canon import CanonStorage
 from .draft import DraftStorage
+from .ontology import OntologyStorage
 
 __all__ = [
     "BaseStorage",
@@ -15,4 +16,5 @@ __all__ = [
     "CardStorage",
     "CanonStorage",
     "DraftStorage",
+    "OntologyStorage",
 ]

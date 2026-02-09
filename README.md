@@ -38,7 +38,32 @@
 </details>
 
 <details>
-<summary><b>3. 设定卡片系统</b></summary>
+<summary><b>3. 上下文本体系统 (Ontology)</b></summary>
+
+结构化存储故事世界的核心信息，用于高效的上下文管理。
+
+**核心组件：**
+- **CharacterGraph**：角色关系图
+  - 角色节点（状态、位置、目标、别名、所属组织）
+  - 关系边（支持17种类型：亲属、社会、情感等）
+  - 路径查找、组织筛选
+- **WorldOntology**：世界观本体
+  - 世界规则（可标记为不可违反）
+  - 地点（支持层级关系）
+  - 势力/组织
+- **Timeline**：结构化时间线
+  - 事件（时间、参与者、地点、重要性、后果）
+
+**优势：**
+- Token 效率：结构化数据比纯文本节省约 90% token
+- 一致性检查：可检测与已知规则/事实的冲突
+- 精确场景上下文：只提取相关角色的关系和事件
+- 自动提取：章节定稿后自动更新本体
+
+</details>
+
+<details>
+<summary><b>4. 设定卡片系统</b></summary>
 
 结构化管理小说的各类设定信息。
 
@@ -51,7 +76,7 @@
 </details>
 
 <details>
-<summary><b>4. 写作工作流</b></summary>
+<summary><b>5. 写作工作流</b></summary>
 
 完整的章节创作流程支持。
 
@@ -71,7 +96,7 @@
 </details>
 
 <details>
-<summary><b>5. 多 LLM 提供商支持</b></summary>
+<summary><b>6. 多 LLM 提供商支持</b></summary>
 
 灵活的 LLM 配置，支持多种提供商。
 
@@ -89,7 +114,7 @@
 </details>
 
 <details>
-<summary><b>6. 数据存储</b></summary>
+<summary><b>7. 数据存储</b></summary>
 
 Git 友好的文件存储结构。
 
@@ -114,10 +139,12 @@ data/projects/{project_id}/
 │       ├── v1.md         # 草稿版本
 │       ├── review.yaml   # 审稿意见
 │       └── final.md      # 成稿
-└── canon/                # 事实表
-    ├── facts.jsonl       # 事实
-    ├── timeline.jsonl    # 时间线
-    └── states.jsonl      # 角色状态
+├── canon/                # 事实表
+│   ├── facts.jsonl       # 事实
+│   ├── timeline.jsonl    # 时间线
+│   └── states.jsonl      # 角色状态
+└── ontology/             # 本体数据
+    └── story_ontology.yaml  # 结构化本体
 ```
 
 </details>
@@ -222,6 +249,7 @@ npm run dev
 - `card.py` - 设定卡片存储
 - `draft.py` - 草稿存储
 - `canon.py` - 事实表存储（含智能筛选）
+- `ontology.py` - 本体存储（角色图、世界观、时间线）
 
 </details>
 
@@ -253,6 +281,7 @@ npm run dev
 - `/api/projects/{id}/cards` - 设定卡片
 - `/api/projects/{id}/drafts` - 草稿管理
 - `/api/projects/{id}/canon` - 事实表
+- `/api/ontology/{id}` - 本体数据（角色、关系、时间线、规则）
 - `/api/settings` - 全局设置
 - `/api/statistics` - 写作统计
 
@@ -324,6 +353,15 @@ GET    /api/projects/{id}/canon/facts           # 事实列表
 GET    /api/projects/{id}/canon/timeline        # 时间线
 GET    /api/projects/{id}/canon/states          # 角色状态
 
+# 本体数据
+GET    /api/ontology/{id}/overview              # 本体概览
+GET    /api/ontology/{id}/characters            # 角色节点列表
+GET    /api/ontology/{id}/relationships         # 角色关系
+GET    /api/ontology/{id}/timeline              # 结构化时间线
+GET    /api/ontology/{id}/rules                 # 世界规则
+GET    /api/ontology/{id}/context/writing       # 写作上下文
+GET    /api/ontology/{id}/context/review        # 审稿上下文
+
 # 设置
 GET    /api/settings                    # 获取设置
 PUT    /api/settings                    # 更新设置
@@ -355,6 +393,62 @@ npm run dev
 - 新 LLM 提供商适配
 
 ## 5. 更新日志
+
+### 2026-02-09
+
+**事实表批量删除功能**
+- 新增批量删除 API 端点
+  - `POST /projects/{id}/canon/facts/batch-delete` - 批量删除事实
+  - `POST /projects/{id}/canon/timeline/batch-delete` - 批量删除时间线
+  - `POST /projects/{id}/canon/states/batch-delete` - 批量删除角色状态
+- 前端事实表三个板块添加复选框和批量删除按钮
+  - 支持全选/取消全选
+  - 显示已选数量
+  - 批量删除确认提示
+
+**自动提取去重优化**
+- 提取前检测已有数据，自动跳过重复条目
+  - 事实：基于描述文本去重（忽略大小写）
+  - 时间线：基于 (时间, 事件描述) 组合去重
+  - 角色状态：基于 (角色名, 章节) 组合去重
+- 提取结果显示跳过的重复条目数量
+
+**Bug 修复**
+- 修复自动提取功能 `get_final()` 返回值类型错误
+- 修复存储类默认初始化缺少参数问题
+
+---
+
+### 2026-02-06
+
+**上下文本体建模系统**
+- 新增结构化本体模型 `models/ontology.py`
+  - **CharacterGraph**：角色关系图（节点状态、17种关系类型、路径查找）
+  - **WorldOntology**：世界观本体（规则、地点、势力）
+  - **Timeline**：时间线（事件、参与者、重要性分级）
+  - **StoryOntology**：聚合本体，提供上下文生成方法
+- 新增本体存储层 `storage/ontology.py`
+  - 角色/关系/事件/规则/地点/势力的增删改查
+  - `get_writing_context()` 和 `get_review_context()` 按 token 预算输出紧凑上下文
+  - 支持从指定章节重建本体
+- 新增本体提取服务 `services/ontology_extractor.py`
+  - 从章节内容自动提取结构化本体信息
+  - 使用 LLM 进行 JSON 格式化提取
+  - 支持长文本分段处理
+- 新增本体 API `/api/ontology`
+  - 概览、角色、关系、时间线、规则查询
+  - 写作/审稿上下文获取
+  - 本体重建和清空
+
+**Agent 本体集成**
+- Archivist：生成场景简报时使用本体上下文；提取事实后自动更新本体
+- Reviewer：审稿时使用本体上下文进行一致性检查
+
+**LLM 配置优化**
+- 所有 LLM 提供商（OpenAI/Anthropic/DeepSeek）支持自定义 Base URL
+- 设置页面新增 Base URL 输入框，支持代理/中转服务
+
+---
 
 ### 2026-02-03
 
@@ -495,6 +589,6 @@ npm run dev
 
 ---
 
-版本：v2.0
-更新时间：2026-02-03
+版本：v2.1
+更新时间：2026-02-06
 许可证：MIT

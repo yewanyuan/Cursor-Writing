@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity, Download, Loader2, BarChart3 } from "lucide-react"
+import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity, Download, Loader2, BarChart3, Sparkles, CheckSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { projectApi, cardApi, draftApi, canonApi, exportApi } from "@/api"
 import type { Project, CharacterCard, WorldCard, StyleCard, RulesCard, Draft, Fact, TimelineEvent, CharacterState } from "@/types"
@@ -117,6 +125,17 @@ export default function ProjectWorkspace() {
   const [exportUseFinal, setExportUseFinal] = useState(true)
   const [exportInfo, setExportInfo] = useState<{ total_words: number; chapter_count: number } | null>(null)
   const [exporting, setExporting] = useState(false)
+
+  // AI 提取状态
+  const [extractDialogOpen, setExtractDialogOpen] = useState(false)
+  const [extractChapter, setExtractChapter] = useState("")
+  const [extracting, setExtracting] = useState(false)
+
+  // 批量选择状态
+  const [selectedFactIds, setSelectedFactIds] = useState<Set<string>>(new Set())
+  const [selectedTimelineIds, setSelectedTimelineIds] = useState<Set<string>>(new Set())
+  const [selectedStateKeys, setSelectedStateKeys] = useState<Set<string>>(new Set())  // "character|chapter" 格式
+  const [batchDeleting, setBatchDeleting] = useState(false)
 
   useEffect(() => {
     if (projectId) loadData()
@@ -369,6 +388,159 @@ export default function ProjectWorkspace() {
       loadData()
     } catch (err) {
       console.error("Failed to delete character state:", err)
+    }
+  }
+
+  // AI 提取相关
+  const openExtractDialog = () => {
+    // 默认选择第一个章节
+    if (drafts.length > 0) {
+      setExtractChapter(drafts[0].chapter)
+    }
+    setExtractDialogOpen(true)
+  }
+
+  const handleAIExtract = async () => {
+    if (!projectId || !extractChapter) return
+    setExtracting(true)
+    try {
+      const res = await canonApi.extractFromChapter(projectId, extractChapter)
+      if (res.data.success) {
+        alert(res.data.message)
+        setExtractDialogOpen(false)
+        loadData()  // 刷新数据
+      } else {
+        alert("提取失败：" + res.data.message)
+      }
+    } catch (err: unknown) {
+      console.error("Failed to extract:", err)
+      const errorMessage = err instanceof Error ? err.message : "未知错误"
+      alert("AI 提取失败：" + errorMessage)
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  // 批量删除相关
+  const toggleFactSelection = (factId: string) => {
+    setSelectedFactIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(factId)) {
+        newSet.delete(factId)
+      } else {
+        newSet.add(factId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleTimelineSelection = (eventId: string) => {
+    setSelectedTimelineIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId)
+      } else {
+        newSet.add(eventId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleStateSelection = (character: string, chapter: string) => {
+    const key = `${character}|${chapter}`
+    setSelectedStateKeys(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(key)) {
+        newSet.delete(key)
+      } else {
+        newSet.add(key)
+      }
+      return newSet
+    })
+  }
+
+  const selectAllFacts = () => {
+    if (selectedFactIds.size === facts.length) {
+      setSelectedFactIds(new Set())
+    } else {
+      setSelectedFactIds(new Set(facts.map(f => f.id)))
+    }
+  }
+
+  const selectAllTimeline = () => {
+    if (selectedTimelineIds.size === timeline.length) {
+      setSelectedTimelineIds(new Set())
+    } else {
+      setSelectedTimelineIds(new Set(timeline.map(e => e.id)))
+    }
+  }
+
+  const selectAllStates = () => {
+    if (selectedStateKeys.size === characterStates.length) {
+      setSelectedStateKeys(new Set())
+    } else {
+      setSelectedStateKeys(new Set(characterStates.map(s => `${s.character}|${s.chapter}`)))
+    }
+  }
+
+  const handleBatchDeleteFacts = async () => {
+    if (!projectId || selectedFactIds.size === 0) return
+    if (!confirm(`确定删除选中的 ${selectedFactIds.size} 条事实？`)) return
+    setBatchDeleting(true)
+    try {
+      const res = await canonApi.batchDeleteFacts(projectId, Array.from(selectedFactIds))
+      if (res.data.success) {
+        alert(res.data.message)
+        setSelectedFactIds(new Set())
+        loadData()
+      }
+    } catch (err) {
+      console.error("Failed to batch delete facts:", err)
+      alert("批量删除失败")
+    } finally {
+      setBatchDeleting(false)
+    }
+  }
+
+  const handleBatchDeleteTimeline = async () => {
+    if (!projectId || selectedTimelineIds.size === 0) return
+    if (!confirm(`确定删除选中的 ${selectedTimelineIds.size} 条时间线事件？`)) return
+    setBatchDeleting(true)
+    try {
+      const res = await canonApi.batchDeleteTimeline(projectId, Array.from(selectedTimelineIds))
+      if (res.data.success) {
+        alert(res.data.message)
+        setSelectedTimelineIds(new Set())
+        loadData()
+      }
+    } catch (err) {
+      console.error("Failed to batch delete timeline:", err)
+      alert("批量删除失败")
+    } finally {
+      setBatchDeleting(false)
+    }
+  }
+
+  const handleBatchDeleteStates = async () => {
+    if (!projectId || selectedStateKeys.size === 0) return
+    if (!confirm(`确定删除选中的 ${selectedStateKeys.size} 条角色状态？`)) return
+    setBatchDeleting(true)
+    try {
+      const keys = Array.from(selectedStateKeys).map(key => {
+        const [character, chapter] = key.split("|")
+        return { character, chapter }
+      })
+      const res = await canonApi.batchDeleteStates(projectId, keys)
+      if (res.data.success) {
+        alert(res.data.message)
+        setSelectedStateKeys(new Set())
+        loadData()
+      }
+    } catch (err) {
+      console.error("Failed to batch delete states:", err)
+      alert("批量删除失败")
+    } finally {
+      setBatchDeleting(false)
     }
   }
 
@@ -751,11 +923,45 @@ export default function ProjectWorkspace() {
               {/* 事实列表 */}
               {canonSubTab === "facts" && (
                 <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={openNewFactDialog}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      添加事实
-                    </Button>
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      {facts.length > 0 && (
+                        <>
+                          <Checkbox
+                            checked={selectedFactIds.size === facts.length && facts.length > 0}
+                            onCheckedChange={selectAllFacts}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedFactIds.size > 0 ? `已选 ${selectedFactIds.size} 项` : "全选"}
+                          </span>
+                          {selectedFactIds.size > 0 && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={handleBatchDeleteFacts}
+                              disabled={batchDeleting}
+                            >
+                              {batchDeleting ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 mr-1" />
+                              )}
+                              批量删除
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={openExtractDialog} disabled={drafts.length === 0}>
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        自动提取
+                      </Button>
+                      <Button size="sm" onClick={openNewFactDialog}>
+                        <Plus className="w-4 h-4 mr-1" />
+                        添加事实
+                      </Button>
+                    </div>
                   </div>
                   <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
                     <div className="space-y-2">
@@ -765,9 +971,15 @@ export default function ProjectWorkspace() {
                         </div>
                       ) : (
                         facts.map((fact) => (
-                          <Card key={fact.id} className="group cursor-pointer hover:bg-accent/50" onClick={() => openEditFactDialog(fact)}>
-                            <CardContent className="flex items-start justify-between py-3">
-                              <div className="flex-1">
+                          <Card key={fact.id} className="group hover:bg-accent/50">
+                            <CardContent className="flex items-start gap-3 py-3">
+                              <Checkbox
+                                checked={selectedFactIds.has(fact.id)}
+                                onCheckedChange={() => toggleFactSelection(fact.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 cursor-pointer" onClick={() => openEditFactDialog(fact)}>
                                 <p className="text-sm">{fact.statement}</p>
                                 <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
                                   {fact.source && <span>来源: {fact.source}</span>}
@@ -804,11 +1016,45 @@ export default function ProjectWorkspace() {
               {/* 时间线列表 */}
               {canonSubTab === "timeline" && (
                 <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={openNewTimelineDialog}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      添加事件
-                    </Button>
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      {timeline.length > 0 && (
+                        <>
+                          <Checkbox
+                            checked={selectedTimelineIds.size === timeline.length && timeline.length > 0}
+                            onCheckedChange={selectAllTimeline}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedTimelineIds.size > 0 ? `已选 ${selectedTimelineIds.size} 项` : "全选"}
+                          </span>
+                          {selectedTimelineIds.size > 0 && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={handleBatchDeleteTimeline}
+                              disabled={batchDeleting}
+                            >
+                              {batchDeleting ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 mr-1" />
+                              )}
+                              批量删除
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={openExtractDialog} disabled={drafts.length === 0}>
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        自动提取
+                      </Button>
+                      <Button size="sm" onClick={openNewTimelineDialog}>
+                        <Plus className="w-4 h-4 mr-1" />
+                        添加事件
+                      </Button>
+                    </div>
                   </div>
                   <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
                     <div className="space-y-2">
@@ -818,9 +1064,15 @@ export default function ProjectWorkspace() {
                         </div>
                       ) : (
                         timeline.map((event) => (
-                          <Card key={event.id} className="group cursor-pointer hover:bg-accent/50" onClick={() => openEditTimelineDialog(event)}>
-                            <CardContent className="flex items-start justify-between py-3">
-                              <div className="flex-1">
+                          <Card key={event.id} className="group hover:bg-accent/50">
+                            <CardContent className="flex items-start gap-3 py-3">
+                              <Checkbox
+                                checked={selectedTimelineIds.has(event.id)}
+                                onCheckedChange={() => toggleTimelineSelection(event.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 cursor-pointer" onClick={() => openEditTimelineDialog(event)}>
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium text-primary">{event.time}</span>
                                   {event.location && <span className="text-xs text-muted-foreground">@ {event.location}</span>}
@@ -864,11 +1116,45 @@ export default function ProjectWorkspace() {
               {/* 角色状态列表 */}
               {canonSubTab === "states" && (
                 <div className="space-y-4">
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={openNewStateDialog}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      添加状态
-                    </Button>
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      {characterStates.length > 0 && (
+                        <>
+                          <Checkbox
+                            checked={selectedStateKeys.size === characterStates.length && characterStates.length > 0}
+                            onCheckedChange={selectAllStates}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedStateKeys.size > 0 ? `已选 ${selectedStateKeys.size} 项` : "全选"}
+                          </span>
+                          {selectedStateKeys.size > 0 && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={handleBatchDeleteStates}
+                              disabled={batchDeleting}
+                            >
+                              {batchDeleting ? (
+                                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4 mr-1" />
+                              )}
+                              批量删除
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={openExtractDialog} disabled={drafts.length === 0}>
+                        <Sparkles className="w-4 h-4 mr-1" />
+                        自动提取
+                      </Button>
+                      <Button size="sm" onClick={openNewStateDialog}>
+                        <Plus className="w-4 h-4 mr-1" />
+                        添加状态
+                      </Button>
+                    </div>
                   </div>
                   <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
                     <div className="space-y-2">
@@ -878,44 +1164,54 @@ export default function ProjectWorkspace() {
                         </div>
                       ) : (
                         characterStates.map((state, idx) => (
-                          <Card key={`${state.character}-${state.chapter}-${idx}`} className="group cursor-pointer hover:bg-accent/50" onClick={() => openEditStateDialog(state)}>
+                          <Card key={`${state.character}-${state.chapter}-${idx}`} className="group hover:bg-accent/50">
                             <CardContent className="py-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">{state.character}</span>
-                                  <span className="text-xs text-muted-foreground">截止 {state.chapter}</span>
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={(e) => { e.stopPropagation(); openEditStateDialog(state) }}
-                                  >
-                                    <Edit className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={(e) => { e.stopPropagation(); handleDeleteState(state.character, state.chapter) }}
-                                  >
-                                    <Trash2 className="w-3 h-3 text-destructive" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                                {state.location && <div><span className="text-muted-foreground">位置:</span> {state.location}</div>}
-                                {state.emotional_state && <div><span className="text-muted-foreground">情绪:</span> {state.emotional_state}</div>}
-                                {state.goals.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">目标:</span> {state.goals.join(", ")}</div>}
-                                {state.injuries.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">伤势:</span> {state.injuries.join(", ")}</div>}
-                                {state.inventory && state.inventory.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">持有物品:</span> {state.inventory.join(", ")}</div>}
-                                {state.relationships && Object.keys(state.relationships).length > 0 && (
-                                  <div className="col-span-2">
-                                    <span className="text-muted-foreground">人物关系:</span>{" "}
-                                    {Object.entries(state.relationships).map(([name, rel]) => `${name}(${rel})`).join(", ")}
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  checked={selectedStateKeys.has(`${state.character}|${state.chapter}`)}
+                                  onCheckedChange={() => toggleStateSelection(state.character, state.chapter)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="mt-1"
+                                />
+                                <div className="flex-1 cursor-pointer" onClick={() => openEditStateDialog(state)}>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{state.character}</span>
+                                      <span className="text-xs text-muted-foreground">截止 {state.chapter}</span>
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={(e) => { e.stopPropagation(); openEditStateDialog(state) }}
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={(e) => { e.stopPropagation(); handleDeleteState(state.character, state.chapter) }}
+                                      >
+                                        <Trash2 className="w-3 h-3 text-destructive" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                )}
+                                  <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                                    {state.location && <div><span className="text-muted-foreground">位置:</span> {state.location}</div>}
+                                    {state.emotional_state && <div><span className="text-muted-foreground">情绪:</span> {state.emotional_state}</div>}
+                                    {state.goals.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">目标:</span> {state.goals.join(", ")}</div>}
+                                    {state.injuries.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">伤势:</span> {state.injuries.join(", ")}</div>}
+                                    {state.inventory && state.inventory.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">持有物品:</span> {state.inventory.join(", ")}</div>}
+                                    {state.relationships && Object.keys(state.relationships).length > 0 && (
+                                      <div className="col-span-2">
+                                        <span className="text-muted-foreground">人物关系:</span>{" "}
+                                        {Object.entries(state.relationships).map(([name, rel]) => `${name}(${rel})`).join(", ")}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
@@ -1412,6 +1708,53 @@ export default function ProjectWorkspace() {
                 <>
                   <Download className="w-4 h-4 mr-1" />
                   导出
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 自动提取对话框 */}
+      <Dialog open={extractDialogOpen} onOpenChange={setExtractDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>自动提取事实</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>选择章节</Label>
+              <Select value={extractChapter} onValueChange={setExtractChapter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择要提取的章节" />
+                </SelectTrigger>
+                <SelectContent>
+                  {drafts.map((draft) => (
+                    <SelectItem key={draft.chapter} value={draft.chapter}>
+                      {draft.chapter}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                AI 将从选中章节的内容中提取事实、时间线事件和角色状态
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExtractDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleAIExtract} disabled={extracting || !extractChapter}>
+              {extracting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  提取中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-1" />
+                  开始提取
                 </>
               )}
             </Button>

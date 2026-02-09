@@ -1,16 +1,15 @@
 """
-外部服务 (External Services)
-爬虫、搜索等外部服务集成
-
-TODO: 待实现的服务
-- SearchService: 搜索服务 (DuckDuckGo)
-- CrawlerService: 网页爬虫服务
-- WikiParser: Wiki 解析器（用于同人小说素材导入）
+服务层 (Services)
+本体提取、统计分析、导出等服务
 """
 
-# 预留导入位置
-# from .search import SearchService
-# from .crawler import CrawlerService
-# from .wiki_parser import WikiParser
+from .ontology_extractor import OntologyExtractor, get_extractor
+from .statistics import StatisticsService
+from .exporter import ExportService
 
-__all__ = []
+__all__ = [
+    "OntologyExtractor",
+    "get_extractor",
+    "StatisticsService",
+    "ExportService",
+]

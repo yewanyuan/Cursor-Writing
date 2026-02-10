@@ -24,3 +24,11 @@ class ProjectCreate(BaseModel):
     description: str = ""
     author: str = ""
     genre: str = ""
+
+
+class ProjectUpdate(BaseModel):
+    """更新项目的请求体"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    author: Optional[str] = None
+    genre: Optional[str] = None

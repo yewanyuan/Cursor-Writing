@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { motion } from "framer-motion"
-import { Plus, BookOpen, Trash2, Calendar, User, Settings } from "lucide-react"
+import { Plus, BookOpen, Trash2, Calendar, User, Settings, Upload, FileText, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/ThemeToggle"
-import { projectApi } from "@/api"
+import { projectApi, importApi } from "@/api"
 import type { Project, ProjectCreate } from "@/types"
 
 export default function ProjectList() {
@@ -31,6 +33,27 @@ export default function ProjectList() {
     genre: "",
     description: "",
   })
+
+  // 导入相关状态
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [importStep, setImportStep] = useState<"upload" | "preview" | "importing">("upload")
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewData, setPreviewData] = useState<{
+    title: string
+    author: string
+    description: string
+    chapter_count: number
+    total_words: number
+    chapters: Array<{ chapter_name: string; title: string; word_count: number }>
+  } | null>(null)
+  const [importOptions, setImportOptions] = useState({
+    projectName: "",
+    genre: "",
+    analyze: true,
+  })
+  const [importing, setImporting] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadProjects()
@@ -70,6 +93,86 @@ export default function ProjectList() {
     }
   }
 
+  // 导入相关函数
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setSelectedFile(file)
+    setPreviewLoading(true)
+
+    try {
+      const res = await importApi.preview(file)
+      if (res.data.success) {
+        setPreviewData(res.data)
+        setImportOptions(prev => ({
+          ...prev,
+          projectName: res.data.title,
+        }))
+        setImportStep("preview")
+      } else {
+        alert("解析失败: " + res.data.message)
+        resetImportDialog()
+      }
+    } catch (err: unknown) {
+      console.error("Failed to preview:", err)
+      const errorMessage = err instanceof Error ? err.message : "未知错误"
+      alert("文件解析失败: " + errorMessage)
+      resetImportDialog()
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!selectedFile) return
+
+    setImporting(true)
+    setImportStep("importing")
+
+    try {
+      const res = await importApi.import(selectedFile, {
+        projectName: importOptions.projectName || previewData?.title,
+        genre: importOptions.genre || undefined,
+        analyze: importOptions.analyze,
+      })
+
+      if (res.data.success) {
+        alert(res.data.message)
+        setImportDialogOpen(false)
+        resetImportDialog()
+        loadProjects()
+        // 导入成功后跳转到项目页面
+        navigate(`/project/${res.data.project_id}`)
+      } else {
+        alert("导入失败")
+        setImportStep("preview")
+      }
+    } catch (err: unknown) {
+      console.error("Failed to import:", err)
+      const errorMessage = err instanceof Error ? err.message : "未知错误"
+      alert("导入失败: " + errorMessage)
+      setImportStep("preview")
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const resetImportDialog = () => {
+    setImportStep("upload")
+    setSelectedFile(null)
+    setPreviewData(null)
+    setImportOptions({ projectName: "", genre: "", analyze: true })
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const openImportDialog = () => {
+    resetImportDialog()
+    setImportDialogOpen(true)
+  }
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -95,6 +198,10 @@ export default function ProjectList() {
             <ThemeToggle />
             <Button variant="outline" size="icon" onClick={() => navigate("/settings")}>
               <Settings className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" onClick={openImportDialog}>
+              <Upload className="w-4 h-4 mr-2" />
+              导入小说
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -231,6 +338,146 @@ export default function ProjectList() {
           </motion.div>
         )}
       </div>
+
+      {/* 导入小说对话框 */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => {
+        if (!open) resetImportDialog()
+        setImportDialogOpen(open)
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>导入小说</DialogTitle>
+            <DialogDescription>
+              {importStep === "upload" && "上传小说文件，支持 TXT、Markdown、EPUB、PDF 格式"}
+              {importStep === "preview" && "确认章节分解结果，调整导入设置"}
+              {importStep === "importing" && "正在导入小说..."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* 上传步骤 */}
+          {importStep === "upload" && (
+            <div className="py-8">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.markdown,.epub,.pdf"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <div
+                className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:border-primary transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {previewLoading ? (
+                  <>
+                    <Loader2 className="w-12 h-12 mx-auto text-muted-foreground animate-spin" />
+                    <p className="mt-4 text-muted-foreground">正在解析文件...</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">点击或拖拽文件到此处上传</p>
+                    <p className="text-xs text-muted-foreground mt-2">支持 TXT、Markdown、EPUB、PDF 格式</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 预览步骤 */}
+          {importStep === "preview" && previewData && (
+            <div className="grid gap-4 py-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span>解析结果</span>
+                  <span className="font-medium">{previewData.chapter_count} 章 / {previewData.total_words.toLocaleString()} 字</span>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>项目名称</Label>
+                <Input
+                  value={importOptions.projectName}
+                  onChange={(e) => setImportOptions(prev => ({ ...prev, projectName: e.target.value }))}
+                  placeholder={previewData.title}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>小说类型</Label>
+                <Input
+                  value={importOptions.genre}
+                  onChange={(e) => setImportOptions(prev => ({ ...prev, genre: e.target.value }))}
+                  placeholder="如：玄幻、都市、科幻"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="analyze"
+                  checked={importOptions.analyze}
+                  onCheckedChange={(checked) => setImportOptions(prev => ({ ...prev, analyze: !!checked }))}
+                />
+                <Label htmlFor="analyze" className="flex items-center gap-2 cursor-pointer">
+                  <Sparkles className="w-4 h-4" />
+                  使用 AI 分析世界观和文风设定
+                </Label>
+              </div>
+
+              <div className="grid gap-2">
+                <Label>章节列表</Label>
+                <ScrollArea className="h-48 border rounded-lg">
+                  <div className="p-2 space-y-1">
+                    {previewData.chapters.map((ch, idx) => (
+                      <div key={idx} className="flex justify-between text-sm py-1 px-2 hover:bg-muted rounded">
+                        <span>
+                          <span className="font-medium">{ch.chapter_name}</span>
+                          {ch.title && <span className="text-muted-foreground ml-2">{ch.title}</span>}
+                        </span>
+                        <span className="text-muted-foreground">{ch.word_count} 字</span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+
+          {/* 导入中步骤 */}
+          {importStep === "importing" && (
+            <div className="py-12 text-center">
+              <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
+              <p className="mt-4 text-muted-foreground">
+                {importOptions.analyze ? "正在导入并分析小说，这可能需要几分钟..." : "正在导入小说..."}
+              </p>
+              {importOptions.analyze && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  AI 正在分析世界观设定、角色信息和文风特点
+                </p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            {importStep === "upload" && (
+              <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                取消
+              </Button>
+            )}
+            {importStep === "preview" && (
+              <>
+                <Button variant="outline" onClick={resetImportDialog}>
+                  重新选择
+                </Button>
+                <Button onClick={handleImport} disabled={importing}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  开始导入
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

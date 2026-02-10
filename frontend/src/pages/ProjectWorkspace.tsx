@@ -137,6 +137,15 @@ export default function ProjectWorkspace() {
   const [selectedStateKeys, setSelectedStateKeys] = useState<Set<string>>(new Set())  // "character|chapter" 格式
   const [batchDeleting, setBatchDeleting] = useState(false)
 
+  // 项目编辑对话框状态
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false)
+  const [projectForm, setProjectForm] = useState({
+    name: "",
+    author: "",
+    genre: "",
+    description: "",
+  })
+
   useEffect(() => {
     if (projectId) loadData()
   }, [projectId])
@@ -166,6 +175,29 @@ export default function ProjectWorkspace() {
       setCharacterStates(statesRes.data)
     } catch (err) {
       console.error("Failed to load data:", err)
+    }
+  }
+
+  // 项目编辑相关
+  const openEditProjectDialog = () => {
+    if (!project) return
+    setProjectForm({
+      name: project.name,
+      author: project.author || "",
+      genre: project.genre || "",
+      description: project.description || "",
+    })
+    setProjectDialogOpen(true)
+  }
+
+  const handleSaveProject = async () => {
+    if (!projectId || !projectForm.name) return
+    try {
+      const res = await projectApi.update(projectId, projectForm)
+      setProject(res.data)
+      setProjectDialogOpen(false)
+    } catch (err) {
+      console.error("Failed to update project:", err)
     }
   }
 
@@ -634,9 +666,14 @@ export default function ProjectWorkspace() {
             <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold">{project.name}</h1>
-              <p className="text-sm text-muted-foreground">{project.genre}</p>
+            <div className="flex-1 flex items-center gap-2">
+              <div>
+                <h1 className="text-xl font-semibold">{project.name}</h1>
+                <p className="text-sm text-muted-foreground">{project.genre}</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={openEditProjectDialog} title="编辑项目信息">
+                <Edit className="w-4 h-4" />
+              </Button>
             </div>
             <Button variant="outline" onClick={() => navigate(`/stats/${projectId}?from=${activeTab}`)}>
               <BarChart3 className="w-4 h-4 mr-2" />
@@ -1758,6 +1795,56 @@ export default function ProjectWorkspace() {
                 </>
               )}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 项目编辑对话框 */}
+      <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑项目信息</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>作品名称</Label>
+              <Input
+                value={projectForm.name}
+                onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+                placeholder="输入作品名称"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>作者</Label>
+              <Input
+                value={projectForm.author}
+                onChange={(e) => setProjectForm({ ...projectForm, author: e.target.value })}
+                placeholder="输入作者名"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>类型</Label>
+              <Input
+                value={projectForm.genre}
+                onChange={(e) => setProjectForm({ ...projectForm, genre: e.target.value })}
+                placeholder="如：玄幻、都市、科幻"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>简介</Label>
+              <Textarea
+                value={projectForm.description}
+                onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                placeholder="简单介绍一下你的作品"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSaveProject}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

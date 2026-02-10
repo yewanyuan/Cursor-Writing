@@ -17,8 +17,13 @@ logger = logging.getLogger(__name__)
 class ReviewerAgent(BaseAgent):
     """审稿人"""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        card_storage: "CardStorage" = None,
+        canon_storage: "CanonStorage" = None,
+        draft_storage: "DraftStorage" = None
+    ):
+        super().__init__(card_storage, canon_storage, draft_storage)
         self.ontology_storage = OntologyStorage()
 
     @property

@@ -15,6 +15,7 @@ from .websocket import router as websocket_router
 from .export import router as export_router
 from .statistics import router as statistics_router
 from .ontology import router as ontology_router
+from .importer import router as importer_router
 
 # 汇总所有路由
 api_router = APIRouter()
@@ -28,5 +29,6 @@ api_router.include_router(websocket_router, prefix="/ws", tags=["websocket"])
 api_router.include_router(export_router, prefix="/export", tags=["export"])
 api_router.include_router(statistics_router, prefix="/stats", tags=["statistics"])
 api_router.include_router(ontology_router, prefix="/ontology", tags=["ontology"])
+api_router.include_router(importer_router, prefix="/import", tags=["import"])
 
 __all__ = ["api_router"]

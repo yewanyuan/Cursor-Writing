@@ -5,7 +5,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
 
-from app.models.project import Project, ProjectCreate
+from app.models.project import Project, ProjectCreate, ProjectUpdate
 from app.storage import ProjectStorage
 
 router = APIRouter()
@@ -39,6 +39,16 @@ async def get_project(project_id: str):
     """获取项目详情"""
     storage = get_storage()
     project = await storage.get_project(project_id)
+    if not project:
+        raise HTTPException(404, "项目不存在")
+    return project
+
+
+@router.put("/{project_id}", response_model=Project)
+async def update_project(project_id: str, data: ProjectUpdate):
+    """更新项目信息"""
+    storage = get_storage()
+    project = await storage.update_project(project_id, data)
     if not project:
         raise HTTPException(404, "项目不存在")
     return project

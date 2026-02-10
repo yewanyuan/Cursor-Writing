@@ -194,4 +194,64 @@ export const statsApi = {
   getFull: (projectId: string) => api.get(`/stats/${projectId}`),
 }
 
+// Import 导入
+export const importApi = {
+  // 预览导入（解析文件但不创建项目）
+  preview: (file: File) => {
+    const formData = new FormData()
+    formData.append("file", file)
+    return api.post<{
+      success: boolean
+      title: string
+      author: string
+      description: string
+      chapter_count: number
+      total_words: number
+      chapters: Array<{
+        chapter_name: string
+        title: string
+        word_count: number
+      }>
+      message: string
+    }>("/import/preview", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    })
+  },
+
+  // 导入小说（创建项目）
+  import: (file: File, options?: {
+    projectName?: string
+    genre?: string
+    analyze?: boolean
+  }) => {
+    const formData = new FormData()
+    formData.append("file", file)
+    if (options?.projectName) formData.append("project_name", options.projectName)
+    if (options?.genre) formData.append("genre", options.genre)
+    if (options?.analyze !== undefined) formData.append("analyze", String(options.analyze))
+    return api.post<{
+      success: boolean
+      project_id: string
+      message: string
+      novel_title: string
+      author: string
+      chapter_count: number
+      total_words: number
+      analysis_done: boolean
+    }>("/import/import", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 600000  // 10分钟超时（AI 分析需要较长时间）
+    })
+  },
+
+  // 获取支持的格式
+  getFormats: () => api.get<{
+    formats: Array<{
+      value: string
+      label: string
+      extensions: string[]
+    }>
+  }>("/import/formats"),
+}
+
 export default api

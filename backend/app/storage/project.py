@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from typing import List, Optional
 
-from app.models.project import Project, ProjectCreate
+from app.models.project import Project, ProjectCreate, ProjectUpdate
 from app.storage.base import BaseStorage
 from app.utils.helpers import sanitize_filename
 
@@ -72,6 +72,21 @@ class ProjectStorage(BaseStorage):
         project.updated_at = datetime.now()
         path = self._get_project_dir(project.id) / "project.yaml"
         await self.write_yaml(path, project.model_dump())
+
+    async def update_project(self, project_id: str, data: ProjectUpdate) -> Optional[Project]:
+        """更新项目信息"""
+        project = await self.get_project(project_id)
+        if not project:
+            return None
+
+        # 更新字段
+        update_data = data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(project, key, value)
+
+        await self.save_project(project)
+        return project
 
     async def delete_project(self, project_id: str) -> bool:
         """删除项目"""

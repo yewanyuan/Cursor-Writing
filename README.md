@@ -96,7 +96,30 @@
 </details>
 
 <details>
-<summary><b>6. 多 LLM 提供商支持</b></summary>
+<summary><b>6. 小说导入功能</b></summary>
+
+支持从已有小说文件导入，继续创作。
+
+**支持格式：**
+- TXT 纯文本（自动检测编码：UTF-8/GBK/GB2312/GB18030/BIG5）
+- Markdown（支持 YAML Front Matter）
+- EPUB 电子书（自动解析元数据和章节结构）
+- PDF 文档
+
+**智能解析：**
+- 自动分解章节：支持「第X章」「Chapter X」「序章/楔子/尾声」等多种格式
+- 自动提取书名、作者信息
+- 导入前预览章节分解结果
+
+**AI 分析（可选）：**
+- 自动分析世界观设定
+- 自动识别主要角色及其特点
+- 自动提取文风特征
+
+</details>
+
+<details>
+<summary><b>7. 多 LLM 提供商支持</b></summary>
 
 灵活的 LLM 配置，支持多种提供商。
 
@@ -114,7 +137,7 @@
 </details>
 
 <details>
-<summary><b>7. 数据存储</b></summary>
+<summary><b>8. 数据存储</b></summary>
 
 Git 友好的文件存储结构。
 
@@ -394,6 +417,44 @@ npm run dev
 
 ## 5. 更新日志
 
+### 2026-02-10
+
+**项目信息编辑功能**
+- 新增项目信息编辑功能
+  - 支持修改作品名称、作者、类型、简介
+  - 新增 `ProjectUpdate` 模型（支持部分更新）
+  - 新增 `PUT /api/projects/{id}` 端点
+  - 工作区页面标题旁新增编辑按钮
+
+**Bug 修复**
+- 修复 `ReviewerAgent.__init__()` 参数错误导致 AI 写作三大功能（创作新章节、续写、插入）失效的问题
+  - 原因：`ReviewerAgent` 重写了 `__init__` 但未接收 storage 参数
+  - 修复：正确传递 `card_storage`、`canon_storage`、`draft_storage` 到父类
+
+**小说导入功能**
+- 新增小说导入服务 `services/importer.py`
+  - 支持 TXT、Markdown、EPUB、PDF 四种格式
+  - 自动章节分解：支持多种章节标题格式（第X章、Chapter X、序章/楔子/尾声等）
+  - 多编码支持：自动检测 UTF-8/GBK/GB2312/GB18030/BIG5
+  - EPUB：解析 OPF 元数据和阅读顺序
+  - PDF：使用 pypdf 提取文本
+- 新增导入 API `/api/import`
+  - `POST /import/preview` - 预览解析结果（不创建项目）
+  - `POST /import/import` - 导入小说并创建项目
+  - `GET /import/formats` - 获取支持的格式列表
+- AI 分析功能（可选）
+  - 自动分析世界观设定
+  - 自动识别主要角色及其特点
+  - 自动提取文风特征（叙事距离、节奏、句式等）
+- 前端导入界面
+  - 首页新增「导入小说」按钮
+  - 文件上传与解析预览
+  - 章节列表确认
+  - 导入选项设置（项目名、类型、是否 AI 分析）
+- 新增依赖：beautifulsoup4、lxml、pypdf
+
+---
+
 ### 2026-02-09
 
 **事实表批量删除功能**
@@ -589,6 +650,6 @@ npm run dev
 
 ---
 
-版本：v2.1
-更新时间：2026-02-06
+版本：v2.3
+更新时间：2026-02-10
 许可证：MIT

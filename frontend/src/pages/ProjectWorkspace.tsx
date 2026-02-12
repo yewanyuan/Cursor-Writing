@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Checkbox } from "@/components/ui/checkbox"
+import { TagInput } from "@/components/ui/tag-input"
+import { ListInput } from "@/components/ui/list-input"
 import {
   Dialog,
   DialogContent,
@@ -943,13 +945,15 @@ export default function ProjectWorkspace() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <Textarea
-                      value={style.vocabulary.join("\n")}
-                      onChange={(e) => setStyle({ ...style, vocabulary: e.target.value.split("\n").filter(Boolean) })}
-                      placeholder="希望 AI 多使用的词汇&#10;每行一个"
-                      rows={4}
-                      className="resize-none font-mono text-sm"
+                    <TagInput
+                      value={style.vocabulary}
+                      onChange={(v) => setStyle({ ...style, vocabulary: v })}
+                      placeholder="输入词汇后按回车添加"
+                      tagClassName="bg-green-500/10 text-green-700 border-green-500/20 hover:bg-green-500/20"
                     />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      希望 AI 多使用的词汇，输入后按回车添加
+                    </p>
                   </CardContent>
                 </Card>
 
@@ -964,13 +968,15 @@ export default function ProjectWorkspace() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <Textarea
-                      value={style.taboo_words.join("\n")}
-                      onChange={(e) => setStyle({ ...style, taboo_words: e.target.value.split("\n").filter(Boolean) })}
-                      placeholder="禁止 AI 使用的词汇&#10;每行一个"
-                      rows={4}
-                      className="resize-none font-mono text-sm"
+                    <TagInput
+                      value={style.taboo_words}
+                      onChange={(v) => setStyle({ ...style, taboo_words: v })}
+                      placeholder="输入词汇后按回车添加"
+                      tagClassName="bg-red-500/10 text-red-700 border-red-500/20 hover:bg-red-500/20"
                     />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      禁止 AI 使用的词汇，输入后按回车添加
+                    </p>
                   </CardContent>
                 </Card>
               </div>
@@ -1033,12 +1039,11 @@ export default function ProjectWorkspace() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <Textarea
-                      value={rules.dos.join("\n")}
-                      onChange={(e) => setRules({ ...rules, dos: e.target.value.split("\n").filter(Boolean) })}
-                      placeholder="例如：&#10;每章必须有冲突&#10;对话要推动剧情&#10;保持悬念感"
-                      rows={8}
-                      className="resize-none font-mono text-sm"
+                    <ListInput
+                      value={rules.dos}
+                      onChange={(v) => setRules({ ...rules, dos: v })}
+                      placeholder="输入规则，如：每章必须有冲突"
+                      addButtonText="添加"
                     />
                   </CardContent>
                 </Card>
@@ -1062,12 +1067,11 @@ export default function ProjectWorkspace() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <Textarea
-                      value={rules.donts.join("\n")}
-                      onChange={(e) => setRules({ ...rules, donts: e.target.value.split("\n").filter(Boolean) })}
-                      placeholder="例如：&#10;不许写死主角&#10;不许出现现代用语&#10;不许开后宫"
-                      rows={8}
-                      className="resize-none font-mono text-sm"
+                    <ListInput
+                      value={rules.donts}
+                      onChange={(v) => setRules({ ...rules, donts: v })}
+                      placeholder="输入规则，如：不许写死主角"
+                      addButtonText="添加"
                     />
                   </CardContent>
                 </Card>
@@ -1091,12 +1095,11 @@ export default function ProjectWorkspace() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
-                    <Textarea
-                      value={rules.quality_standards.join("\n")}
-                      onChange={(e) => setRules({ ...rules, quality_standards: e.target.value.split("\n").filter(Boolean) })}
-                      placeholder="例如：&#10;对话占比不超过50%&#10;描写要有画面感&#10;情感转折要有铺垫"
-                      rows={8}
-                      className="resize-none font-mono text-sm"
+                    <ListInput
+                      value={rules.quality_standards}
+                      onChange={(v) => setRules({ ...rules, quality_standards: v })}
+                      placeholder="输入标准，如：对话占比不超过50%"
+                      addButtonText="添加"
                     />
                   </CardContent>
                 </Card>

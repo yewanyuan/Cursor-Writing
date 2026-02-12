@@ -222,37 +222,72 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
         # 解析冲突
         conflicts: List[Dict[str, str]] = []
         conflicts_text = self.parse_xml_tag(response, "conflicts")
+        # logger.info(f"[Reviewer] Raw conflicts_text: '{conflicts_text}'")
         if conflicts_text:
             for line in conflicts_text.strip().split("\n"):
                 line = line.strip()
                 if line.startswith("CONFLICT|"):
                     parts = line.split("|")
                     if len(parts) >= 4:
-                        conflicts.append({
-                            "fact": parts[1],
-                            "contradiction": parts[2],
-                            "suggestion": parts[3]
-                        })
-                        # 冲突也作为 critical issue 添加
-                        issues.append(ReviewIssue(
-                            category="conflict",
-                            severity="critical",
-                            problem=f"与已知事实冲突：{parts[1]} vs {parts[2]}",
-                            suggestion=parts[3]
-                        ))
+                        fact = parts[1].strip()
+                        contradiction = parts[2].strip()
+                        suggestion = parts[3].strip()
+                        # 验证冲突内容不为空且不是占位符
+                        # LLM 有时会返回空的或占位符式的冲突
+                        if (fact and contradiction and suggestion
+                            and len(fact) > 2 and len(contradiction) > 2
+                            and fact not in ["无", "暂无", "无冲突", "N/A", "-"]
+                            and contradiction not in ["无", "暂无", "无冲突", "N/A", "-"]):
+                            conflicts.append({
+                                "fact": fact,
+                                "contradiction": contradiction,
+                                "suggestion": suggestion
+                            })
+                            # 冲突也作为 critical issue 添加
+                            issues.append(ReviewIssue(
+                                category="conflict",
+                                severity="critical",
+                                problem=f"与已知事实冲突：{fact} vs {contradiction}",
+                                suggestion=suggestion
+                            ))
+                            # logger.info(f"[Reviewer] Valid conflict found: {fact[:50]}...")
+                        else:
+                            pass  # logger.info(f"[Reviewer] Skipped invalid/placeholder conflict: {line[:80]}")
+        # logger.info(f"[Reviewer] Parsed conflicts count: {len(conflicts)}")
 
         # 提取评分
         score = 0.8
         score_text = self.parse_xml_tag(response, "score")
+        # logger.info(f"[Reviewer] Raw score_text: '{score_text}'")
         if score_text:
             try:
-                score = float(score_text.strip())
-            except:
-                pass
+                # 处理可能的格式问题，比如 "0.85分" 或 "85%"
+                cleaned_score = score_text.strip()
+                # 移除可能的后缀
+                for suffix in ["分", "%", "分数"]:
+                    cleaned_score = cleaned_score.replace(suffix, "")
+                cleaned_score = cleaned_score.strip()
 
-        # 如果有冲突，降低评分
+                parsed_score = float(cleaned_score)
+                # 如果是百分制，转换为小数
+                if parsed_score > 1:
+                    parsed_score = parsed_score / 100
+                score = max(0.0, min(1.0, parsed_score))
+                # logger.info(f"[Reviewer] Parsed score: {score}")
+            except Exception as e:
+                logger.warning(f"[Reviewer] Failed to parse score '{score_text}': {e}")
+        else:
+            logger.warning(f"[Reviewer] No score tag found in response")
+
+        # 如果有冲突，根据冲突数量降低评分，但不要太狠
+        # 重要：不再硬性限制上限，而是根据冲突数量扣分
+        # 这样即使有轻微冲突，如果整体质量高，仍然可以通过
         if conflicts:
-            score = min(score, 0.5)  # 有冲突时评分上限为 0.5
+            conflict_penalty = len(conflicts) * 0.05  # 每个冲突扣 0.05
+            conflict_penalty = min(conflict_penalty, 0.2)  # 最多扣 0.2
+            old_score = score
+            score = max(score - conflict_penalty, 0.5)  # 下限 0.5
+            # logger.info(f"[Reviewer] Found {len(conflicts)} conflicts, score adjusted: {old_score:.2f} -> {score:.2f}")
 
         summary = self.parse_xml_tag(response, "summary") or "审核完成"
 
@@ -265,14 +300,23 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
             characters=current_characters,
             target_words=brief.target_words if brief and hasattr(brief, "target_words") else 0
         )
+        # logger.info(f"[Reviewer] Programmatic issues count: {len(programmatic_issues)}")
+        # for pi in programmatic_issues:
+        #     logger.info(f"[Reviewer]   - [{pi.severity}] {pi.category}: {pi.problem}")
 
         # 合并程序化校验发现的问题（放在最前面，因为这些是确定性问题）
         if programmatic_issues:
             issues = programmatic_issues + issues
             # 如果有 major 级别的程序化问题，也要降低评分
+            # 但不要降得太狠，每个 major 问题降 0.05，下限为 0.55
             major_count = sum(1 for i in programmatic_issues if i.severity == "major")
             if major_count > 0:
-                score = min(score, 0.7 - major_count * 0.1)
+                old_score = score
+                penalty = min(major_count * 0.05, 0.25)  # 最多降 0.25
+                score = max(score - penalty, 0.55)  # 下限 0.55，确保还有机会通过
+                # logger.info(f"[Reviewer] Score adjusted for {major_count} major issues: {old_score:.2f} -> {score:.2f}")
+
+        # logger.info(f"[Reviewer] Final score: {score:.2f}, total issues: {len(issues)}")
 
         review = Review(
             chapter=chapter,
@@ -322,18 +366,23 @@ CONFLICT|冲突的事实|草稿中的矛盾内容|建议修改方案
                     ))
 
         # 2. 规则卡-禁止事项检查（精确匹配关键词）
+        # 注意：这种简单的关键词匹配容易产生误报，所以只作为提醒（minor），不作为严重问题
         if rules and rules.donts:
             for dont in rules.donts:
                 # 提取关键词（去掉"不要"、"禁止"等前缀）
                 keywords = self._extract_keywords_from_rule(dont)
+                matched_keywords = []
                 for keyword in keywords:
                     if keyword and len(keyword) >= 2 and keyword in content:
-                        issues.append(ReviewIssue(
-                            category="rules",
-                            severity="major",
-                            problem=f"可能违反禁止规则「{dont}」（检测到关键词：{keyword}）",
-                            suggestion=f"请检查是否违反了「{dont}」这条规则"
-                        ))
+                        matched_keywords.append(keyword)
+                # 只有当多个关键词都匹配时才报告（降低误报率）
+                if len(matched_keywords) >= 2:
+                    issues.append(ReviewIssue(
+                        category="rules",
+                        severity="minor",  # 降级为 minor，因为关键词匹配可能有误报
+                        problem=f"可能违反禁止规则「{dont}」（检测到关键词：{', '.join(matched_keywords)}）",
+                        suggestion=f"请检查是否违反了「{dont}」这条规则"
+                    ))
 
         # 3. 字数检查（如果有目标字数）
         if target_words > 0:

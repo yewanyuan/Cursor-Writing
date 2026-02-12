@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { motion } from "framer-motion"
-import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity, Download, Loader2, BarChart3, Sparkles, CheckSquare } from "lucide-react"
+import { ArrowLeft, Plus, User, Globe, FileText, Pen, Trash2, Edit, BookOpen, Shield, Database, Clock, Activity, Download, Loader2, BarChart3, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -805,119 +805,321 @@ export default function ProjectWorkspace() {
 
           {/* 文风 Tab */}
           <TabsContent value="style" className="mt-6">
-            <div className="max-w-2xl space-y-6">
-              <h2 className="text-lg font-medium">文风设定</h2>
-
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label>叙事距离</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                    value={style.narrative_distance}
-                    onChange={(e) => setStyle({ ...style, narrative_distance: e.target.value })}
-                  >
-                    <option value="close">近距离（第一人称/深度内心）</option>
-                    <option value="medium">中距离（有限第三人称）</option>
-                    <option value="far">远距离（全知视角）</option>
-                  </select>
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-medium">文风设定</h2>
+                  <p className="text-sm text-muted-foreground">定义你的写作风格，AI 会参照这些设定进行创作</p>
                 </div>
+                <Button onClick={handleSaveStyle}>保存文风设置</Button>
+              </div>
 
-                <div className="grid gap-2">
-                  <Label>叙事节奏</Label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                    value={style.pacing}
-                    onChange={(e) => setStyle({ ...style, pacing: e.target.value })}
-                  >
-                    <option value="fast">快节奏（动作密集）</option>
-                    <option value="moderate">中等节奏（平衡）</option>
-                    <option value="slow">慢节奏（细腻描写）</option>
-                  </select>
-                </div>
+              {/* 基础设定卡片 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                      叙事距离
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col gap-2">
+                      {[
+                        { value: "close", label: "近距离", desc: "第一人称/深度内心" },
+                        { value: "medium", label: "中距离", desc: "有限第三人称" },
+                        { value: "far", label: "远距离", desc: "全知视角" },
+                      ].map((option) => (
+                        <label
+                          key={option.value}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                            style.narrative_distance === option.value
+                              ? "border-primary bg-primary/5"
+                              : "border-transparent bg-muted/50 hover:bg-muted"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="narrative_distance"
+                            value={option.value}
+                            checked={style.narrative_distance === option.value}
+                            onChange={(e) => setStyle({ ...style, narrative_distance: e.target.value })}
+                            className="sr-only"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            style.narrative_distance === option.value ? "border-primary" : "border-muted-foreground/30"
+                          }`}>
+                            {style.narrative_distance === option.value && (
+                              <div className="w-2 h-2 rounded-full bg-primary"></div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{option.label}</div>
+                            <div className="text-xs text-muted-foreground">{option.desc}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                <div className="grid gap-2">
-                  <Label>句式偏好</Label>
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                      叙事节奏
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <div className="flex flex-col gap-2">
+                      {[
+                        { value: "fast", label: "快节奏", desc: "动作密集、紧张刺激" },
+                        { value: "moderate", label: "中等节奏", desc: "平衡叙事、张弛有度" },
+                        { value: "slow", label: "慢节奏", desc: "细腻描写、意境悠远" },
+                      ].map((option) => (
+                        <label
+                          key={option.value}
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                            style.pacing === option.value
+                              ? "border-primary bg-primary/5"
+                              : "border-transparent bg-muted/50 hover:bg-muted"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="pacing"
+                            value={option.value}
+                            checked={style.pacing === option.value}
+                            onChange={(e) => setStyle({ ...style, pacing: e.target.value })}
+                            className="sr-only"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            style.pacing === option.value ? "border-primary" : "border-muted-foreground/30"
+                          }`}>
+                            {style.pacing === option.value && (
+                              <div className="w-2 h-2 rounded-full bg-primary"></div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-sm">{option.label}</div>
+                            <div className="text-xs text-muted-foreground">{option.desc}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 句式偏好 */}
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    句式偏好
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
                   <Textarea
                     value={style.sentence_style}
                     onChange={(e) => setStyle({ ...style, sentence_style: e.target.value })}
-                    placeholder="描述你偏好的句式风格，如：短句为主、多用比喻、少用被动语态等"
+                    placeholder="描述你偏好的句式风格，如：短句为主、多用比喻、少用被动语态、善用留白..."
                     rows={2}
+                    className="resize-none"
                   />
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="grid gap-2">
-                  <Label>常用词汇（每行一个）</Label>
-                  <Textarea
-                    value={style.vocabulary.join("\n")}
-                    onChange={(e) => setStyle({ ...style, vocabulary: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="希望 AI 多使用的词汇"
-                    rows={3}
-                  />
-                </div>
+              {/* 词汇设定 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                      常用词汇
+                      <span className="text-xs font-normal text-muted-foreground ml-auto">
+                        {style.vocabulary.length} 个
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <Textarea
+                      value={style.vocabulary.join("\n")}
+                      onChange={(e) => setStyle({ ...style, vocabulary: e.target.value.split("\n").filter(Boolean) })}
+                      placeholder="希望 AI 多使用的词汇&#10;每行一个"
+                      rows={4}
+                      className="resize-none font-mono text-sm"
+                    />
+                  </CardContent>
+                </Card>
 
-                <div className="grid gap-2">
-                  <Label>禁用词汇（每行一个）</Label>
-                  <Textarea
-                    value={style.taboo_words.join("\n")}
-                    onChange={(e) => setStyle({ ...style, taboo_words: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="禁止 AI 使用的词汇"
-                    rows={3}
-                  />
-                </div>
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-red-500/10 to-rose-500/10 pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      禁用词汇
+                      <span className="text-xs font-normal text-muted-foreground ml-auto">
+                        {style.taboo_words.length} 个
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <Textarea
+                      value={style.taboo_words.join("\n")}
+                      onChange={(e) => setStyle({ ...style, taboo_words: e.target.value.split("\n").filter(Boolean) })}
+                      placeholder="禁止 AI 使用的词汇&#10;每行一个"
+                      rows={4}
+                      className="resize-none font-mono text-sm"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
 
-                <div className="grid gap-2">
-                  <Label>范文片段（每段用空行分隔）</Label>
+              {/* 范文片段 */}
+              <Card className="overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                    范文片段
+                    <span className="text-xs font-normal text-muted-foreground ml-auto">
+                      {style.example_passages.length} 段
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
                   <Textarea
                     value={style.example_passages.join("\n\n")}
                     onChange={(e) => setStyle({ ...style, example_passages: e.target.value.split("\n\n").filter(Boolean) })}
-                    placeholder="粘贴你喜欢的文风示例，AI 会参考模仿"
+                    placeholder="粘贴你喜欢的文风示例，AI 会参考模仿&#10;&#10;每段用空行分隔"
                     rows={6}
+                    className="resize-none"
                   />
-                </div>
-              </div>
-
-              <Button onClick={handleSaveStyle}>保存文风设置</Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    提示：可以粘贴多段你喜欢的写作风格示例，每段之间用空行分隔
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
           {/* 规则 Tab */}
           <TabsContent value="rules" className="mt-6">
-            <div className="max-w-2xl space-y-6">
-              <h2 className="text-lg font-medium">写作规则</h2>
-
-              <div className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label>必须遵守（每行一条）</Label>
-                  <Textarea
-                    value={rules.dos.join("\n")}
-                    onChange={(e) => setRules({ ...rules, dos: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="例如：每章必须有冲突、对话要推动剧情"
-                    rows={4}
-                  />
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-medium">写作规则</h2>
+                  <p className="text-sm text-muted-foreground">设定创作边界，确保 AI 输出符合你的预期</p>
                 </div>
-
-                <div className="grid gap-2">
-                  <Label>禁止事项（每行一条）</Label>
-                  <Textarea
-                    value={rules.donts.join("\n")}
-                    onChange={(e) => setRules({ ...rules, donts: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="例如：不许写死主角、不许出现现代用语"
-                    rows={4}
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label>质量标准（每行一条）</Label>
-                  <Textarea
-                    value={rules.quality_standards.join("\n")}
-                    onChange={(e) => setRules({ ...rules, quality_standards: e.target.value.split("\n").filter(Boolean) })}
-                    placeholder="例如：对话占比不超过50%、描写要有画面感"
-                    rows={4}
-                  />
-                </div>
+                <Button onClick={handleSaveRules}>保存规则设置</Button>
               </div>
 
-              <Button onClick={handleSaveRules}>保存规则设置</Button>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* 必须遵守 */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-br from-green-500/10 via-green-500/5 to-transparent pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div>必须遵守</div>
+                        <div className="text-xs font-normal text-muted-foreground">DO's</div>
+                      </div>
+                      <span className="text-xs font-normal text-muted-foreground ml-auto bg-green-500/10 px-2 py-0.5 rounded-full">
+                        {rules.dos.length} 条
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <Textarea
+                      value={rules.dos.join("\n")}
+                      onChange={(e) => setRules({ ...rules, dos: e.target.value.split("\n").filter(Boolean) })}
+                      placeholder="例如：&#10;每章必须有冲突&#10;对话要推动剧情&#10;保持悬念感"
+                      rows={8}
+                      className="resize-none font-mono text-sm"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* 禁止事项 */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div>禁止事项</div>
+                        <div className="text-xs font-normal text-muted-foreground">DON'Ts</div>
+                      </div>
+                      <span className="text-xs font-normal text-muted-foreground ml-auto bg-red-500/10 px-2 py-0.5 rounded-full">
+                        {rules.donts.length} 条
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <Textarea
+                      value={rules.donts.join("\n")}
+                      onChange={(e) => setRules({ ...rules, donts: e.target.value.split("\n").filter(Boolean) })}
+                      placeholder="例如：&#10;不许写死主角&#10;不许出现现代用语&#10;不许开后宫"
+                      rows={8}
+                      className="resize-none font-mono text-sm"
+                    />
+                  </CardContent>
+                </Card>
+
+                {/* 质量标准 */}
+                <Card className="overflow-hidden">
+                  <CardHeader className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div>质量标准</div>
+                        <div className="text-xs font-normal text-muted-foreground">STANDARDS</div>
+                      </div>
+                      <span className="text-xs font-normal text-muted-foreground ml-auto bg-amber-500/10 px-2 py-0.5 rounded-full">
+                        {rules.quality_standards.length} 条
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <Textarea
+                      value={rules.quality_standards.join("\n")}
+                      onChange={(e) => setRules({ ...rules, quality_standards: e.target.value.split("\n").filter(Boolean) })}
+                      placeholder="例如：&#10;对话占比不超过50%&#10;描写要有画面感&#10;情感转折要有铺垫"
+                      rows={8}
+                      className="resize-none font-mono text-sm"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* 规则提示 */}
+              <Card className="bg-muted/30 border-dashed">
+                <CardContent className="py-4">
+                  <div className="flex gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <BookOpen className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground mb-1">小贴士</p>
+                      <ul className="space-y-1">
+                        <li>• <strong>必须遵守</strong>：AI 会尽力在每次创作中体现这些要求</li>
+                        <li>• <strong>禁止事项</strong>：AI 会避免触碰这些红线，审稿人也会检查</li>
+                        <li>• <strong>质量标准</strong>：用于评估草稿质量，不达标会触发重写</li>
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 

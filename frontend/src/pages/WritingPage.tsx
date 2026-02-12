@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import HighlightEditor, { type AIContentRange, type HighlightEditorRef } from "@/components/HighlightEditor"
 import { projectApi, cardApi, sessionApi, draftApi } from "@/api"
 import type { Project, CharacterCard, SessionStatus } from "@/types"
 
@@ -54,7 +55,10 @@ export default function WritingPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const editorRef = useRef<HighlightEditorRef>(null)
+
+  // AI 内容高亮范围
+  const [aiContentRange, setAiContentRange] = useState<AIContentRange | null>(null)
 
   // Form state
   const [chapter, setChapter] = useState(searchParams.get("chapter") || "第一章")
@@ -69,6 +73,8 @@ export default function WritingPage() {
   const [continueTargetWords, setContinueTargetWords] = useState(500)
   const [insertPosition, setInsertPosition] = useState<number | null>(null)
   const skipNextDraftLoad = useRef(false)  // 跳过下一次草稿加载（续写后已更新）
+  const skipNextHighlight = useRef(false)  // 跳过下一次高亮设置（确认通过后）
+  const isRevisionMode = useRef(false)  // 是否处于修订模式（修订后不应全文高亮）
 
   // 自动保存相关状态
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)  // 自动保存开关
@@ -131,7 +137,23 @@ export default function WritingPage() {
             }
             try {
               const draftRes = await draftApi.get(projectId, chapterRef.current)
-              setContent(draftRes.data.content)
+              const newContent = draftRes.data.content
+              setContent(newContent)
+
+              // 只有在非修订模式且非跳过高亮时才设置全文高亮
+              // 修订模式下保持当前高亮范围（或清除高亮）
+              if (!skipNextHighlight.current && !isRevisionMode.current && newContent && newContent.length > 0) {
+                setAiContentRange({
+                  start: 0,
+                  end: newContent.length,
+                })
+              }
+
+              // 修订完成后重置修订模式标志
+              if (isRevisionMode.current) {
+                isRevisionMode.current = false
+              }
+
               if (data.status === "completed") {
                 setMessages((prev) => [
                   ...prev,
@@ -275,6 +297,8 @@ export default function WritingPage() {
 
     try {
       setStatus({ status: "briefing" })
+      // 重置跳过高亮标志，因为这是新的创作
+      skipNextHighlight.current = false
       addMessage("user", `开始创作 ${chapter}: ${chapterTitle}`)
       addMessage("assistant", "开始准备素材和背景知识...")
 
@@ -301,8 +325,17 @@ export default function WritingPage() {
     try {
       if (action === "confirm") {
         addMessage("user", "确认通过")
+        // 确认通过时清除AI内容高亮
+        setAiContentRange(null)
+        // 设置标志，防止 WebSocket 消息处理重新设置高亮
+        skipNextHighlight.current = true
+        isRevisionMode.current = false
       } else {
         addMessage("user", `修改意见: ${feedback}`)
+        // 修改时需要重新加载草稿，重置跳过标志
+        skipNextDraftLoad.current = false
+        // 修订模式：不要设置全文高亮，保持当前高亮范围
+        isRevisionMode.current = true
       }
 
       await sessionApi.feedback(projectId, action, action === "revise" ? feedback : undefined)
@@ -337,8 +370,8 @@ export default function WritingPage() {
 
   // 获取光标位置
   const getCursorPosition = () => {
-    if (textareaRef.current) {
-      return textareaRef.current.selectionStart
+    if (editorRef.current) {
+      return editorRef.current.getSelectionStart()
     }
     return null
   }
@@ -352,6 +385,8 @@ export default function WritingPage() {
 
     try {
       setStatus({ status: "writing" })
+      // 重置跳过高亮标志，因为这是新的创作
+      skipNextHighlight.current = false
       const modeText = writeMode === "continue" ? "续写" : "插入"
       addMessage("user", `${modeText}：${continueInstruction}`)
       addMessage("assistant", `AI 正在${modeText}...`)
@@ -366,10 +401,23 @@ export default function WritingPage() {
       })
 
       if (result.data.success) {
-        // 设置跳过标志，防止 WebSocket 覆盖内容
+        // 设置跳过标志，防止 WebSocket 覆盖内容和高亮范围
         skipNextDraftLoad.current = true
-        setContent(result.data.draft.content)
-        addMessage("assistant", `${modeText}完成，新增约 ${result.data.new_content?.length || 0} 字`)
+        // 续写/插入成功后，保持当前设置的高亮范围，不让 WebSocket 覆盖
+        skipNextHighlight.current = true
+        const newContent = result.data.draft.content
+        setContent(newContent)
+
+        // 使用后端返回的精确AI内容范围
+        if (result.data.ai_content_range) {
+          setAiContentRange({
+            start: result.data.ai_content_range.start,
+            end: result.data.ai_content_range.end,
+          })
+        }
+
+        const newLength = result.data.new_content?.length || 0
+        addMessage("assistant", `${modeText}完成，新增约 ${newLength} 字`)
         setStatus({ status: "waiting" })
       }
 
@@ -448,12 +496,14 @@ export default function WritingPage() {
 
         {/* Editor */}
         <div className="flex-1 p-6">
-          <Textarea
-            ref={textareaRef}
-            className="writing-editor w-full h-full min-h-[500px] resize-none border-0 focus-visible:ring-0 text-base"
+          <HighlightEditor
+            ref={editorRef}
+            className="writing-editor w-full h-full min-h-[500px] border rounded-md"
             placeholder="开始你的创作..."
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={setContent}
+            aiContentRange={aiContentRange}
+            onAIRangeChange={setAiContentRange}
           />
         </div>
 

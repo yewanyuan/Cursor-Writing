@@ -46,6 +46,8 @@ class WriterAgent(BaseAgent):
         """生成草稿"""
         chapter_goal = kwargs.get("chapter_goal", "")
         target_words = kwargs.get("target_words", 2000)
+        review_feedback = kwargs.get("review_feedback", "")  # 审稿意见（重写时使用）
+        review_issues = kwargs.get("review_issues", [])  # 具体问题列表
 
         # 获取场景简报
         brief = await self.drafts.get_brief(project_id, chapter)
@@ -99,8 +101,34 @@ class WriterAgent(BaseAgent):
 
         context = "\n".join(context_parts)
 
-        # 生成草稿
-        prompt = f"""请撰写章节草稿。
+        # 生成草稿（区分首次写作和重写）
+        if review_feedback or review_issues:
+            # 重写模式：包含审稿意见
+            issues_text = ""
+            if review_issues:
+                issues_text = "\n".join([f"- [{i.severity}] {i.category}: {i.problem}" for i in review_issues[:10]])
+
+            prompt = f"""请根据审稿意见重写章节草稿。
+
+章节：{chapter}
+目标：{chapter_goal or brief.goal}
+目标字数：约 {target_words} 字
+
+【重要】上次草稿的审稿意见：
+{review_feedback}
+
+【需要修复的问题】
+{issues_text if issues_text else "见上方审稿意见"}
+
+要求：
+- 认真阅读审稿意见，修复所有指出的问题
+- **特别注意**：确保与已知事实和时间线保持一致
+- 先列出 3-5 个场景节拍（放在 <plan> 中）
+- 然后写正文（放在 <draft> 中）
+- 不确定的细节用 [TO_CONFIRM: 说明] 标记"""
+        else:
+            # 首次写作
+            prompt = f"""请撰写章节草稿。
 
 章节：{chapter}
 目标：{chapter_goal or brief.goal}
@@ -278,7 +306,7 @@ class WriterAgent(BaseAgent):
 【插入点之前的内容】
 {before_context}
 
-【插入点之后的内容】
+【插入点之后的内容】（这是已存在的内容，你的输出会被插入到这段内容之前）
 {after_context}
 
 【插入要求】
@@ -290,7 +318,9 @@ class WriterAgent(BaseAgent):
 1. 保持文风一致
 2. 自然衔接前后文
 3. 只输出要插入的新内容
-4. 不确定的细节用 [TO_CONFIRM: 说明] 标记
+4. **重要**：不要重复【插入点之后的内容】中已有的任何表述、句子或段落
+5. 你的输出应该在逻辑和叙事上自然过渡到【插入点之后的内容】，但不要把后文的内容提前写出来
+6. 不确定的细节用 [TO_CONFIRM: 说明] 标记
 
 请直接输出要插入的内容："""
 
@@ -317,13 +347,22 @@ class WriterAgent(BaseAgent):
         # 合并内容
         if insert_position is None:
             # 末尾续写
-            merged_content = existing_content.rstrip() + "\n\n" + new_content
+            separator = "\n\n"
+            ai_start = len(existing_content.rstrip()) + len(separator)
+            merged_content = existing_content.rstrip() + separator + new_content
+            ai_end = len(merged_content)
         else:
             # 中间插入
+            before_part = existing_content[:insert_position]
+            after_part = existing_content[insert_position:].lstrip()
+            separator_before = "\n\n"
+            separator_after = "\n\n"
+            ai_start = len(before_part) + len(separator_before)
+            ai_end = ai_start + len(new_content)
             merged_content = (
-                existing_content[:insert_position] +
-                "\n\n" + new_content + "\n\n" +
-                existing_content[insert_position:].lstrip()
+                before_part +
+                separator_before + new_content + separator_after +
+                after_part
             )
 
         # 保存新版本
@@ -343,5 +382,9 @@ class WriterAgent(BaseAgent):
             "new_content": new_content,
             "version": version,
             "confirmations": confirmations,
-            "insert_position": insert_position
+            "insert_position": insert_position,
+            "ai_content_range": {
+                "start": ai_start,
+                "end": ai_end
+            }
         }

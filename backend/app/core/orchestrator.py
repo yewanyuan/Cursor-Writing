@@ -137,6 +137,8 @@ class Orchestrator:
                     review = review_result.get("review")
                     if review:
                         writer_kwargs["review_feedback"] = review.summary
+                        writer_kwargs["review_issues"] = review.issues  # 传递具体问题列表
+                        logger.info(f"重写时传递 {len(review.issues)} 个审稿问题给撰稿人")
 
                 write_result = await self.writer.run(
                     project_id, chapter,

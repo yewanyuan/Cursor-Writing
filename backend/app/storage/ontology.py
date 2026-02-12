@@ -59,7 +59,8 @@ class OntologyStorage(BaseStorage):
         """保存故事本体"""
         path = self._ontology_path(project_id)
         ontology.version += 1
-        await self.write_yaml(path, ontology.model_dump())
+        # 使用 mode="json" 确保 Enum 类型正确序列化为字符串值
+        await self.write_yaml(path, ontology.model_dump(mode="json"))
         logger.info(f"保存本体 v{ontology.version}: {project_id}")
 
     # ==================== 角色图操作 ====================

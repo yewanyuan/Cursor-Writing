@@ -387,79 +387,38 @@ async def extract_facts_from_chapter(project_id: str, req: ExtractRequest):
                 message="AI 提取失败"
             )
 
-        # 获取已有数据用于去重
         storage = get_storage()
-        existing_facts = await storage.get_facts(project_id)
-        existing_timeline = await storage.get_timeline(project_id)
-        existing_states = await storage.get_character_states(project_id)
 
-        # 构建已有数据的特征集合用于快速查重
-        existing_fact_keys = set()
-        for f in existing_facts:
-            # 使用归一化的语句作为键
-            existing_fact_keys.add(f.statement.strip().lower())
-
-        existing_timeline_keys = set()
-        for e in existing_timeline:
-            # 使用 (时间, 事件描述) 作为键
-            existing_timeline_keys.add((e.time.strip(), e.event.strip().lower()))
-
-        existing_state_keys = set()
-        for s in existing_states:
-            # 使用 (角色, 章节) 作为键
-            existing_state_keys.add((s.character, s.chapter))
+        # 先删除该章节的旧数据（避免重复提取导致的重复问题）
+        # 因为 AI 每次提取可能用不同措辞描述同一件事，精确匹配无法去重
+        await storage.remove_facts_by_source(project_id, req.chapter)
+        await storage.remove_timeline_by_source(project_id, req.chapter)
+        await storage.remove_states_by_chapter(project_id, req.chapter)
 
         # 过滤出新的条目
         new_facts = result.get("facts", [])
         new_timeline = result.get("timeline", [])
         new_states = result.get("states", [])
 
-        # 去重：只保留不存在的条目
-        unique_new_facts = []
+        # 添加新提取的数据
         for fact in new_facts:
-            key = fact.statement.strip().lower()
-            if key not in existing_fact_keys:
-                unique_new_facts.append(fact)
-                existing_fact_keys.add(key)  # 防止本批次内重复
-
-        unique_new_timeline = []
-        for event in new_timeline:
-            key = (event.time.strip(), event.event.strip().lower())
-            if key not in existing_timeline_keys:
-                unique_new_timeline.append(event)
-                existing_timeline_keys.add(key)
-
-        unique_new_states = []
-        for state in new_states:
-            key = (state.character, state.chapter)
-            if key not in existing_state_keys:
-                unique_new_states.append(state)
-                existing_state_keys.add(key)
-
-        # 保存去重后的条目
-        for fact in unique_new_facts:
             await storage.add_fact(project_id, fact)
 
-        for event in unique_new_timeline:
+        for event in new_timeline:
             await storage.add_timeline_event(project_id, event)
 
-        for state in unique_new_states:
+        for state in new_states:
             await storage.update_character_state(project_id, state)
 
-        # 计算跳过的数量
-        skipped_facts = len(new_facts) - len(unique_new_facts)
-        skipped_timeline = len(new_timeline) - len(unique_new_timeline)
-        skipped_states = len(new_states) - len(unique_new_states)
-
-        message = f"成功提取 {len(unique_new_facts)} 条事实、{len(unique_new_timeline)} 条时间线、{len(unique_new_states)} 条角色状态"
-        if skipped_facts > 0 or skipped_timeline > 0 or skipped_states > 0:
-            message += f"（跳过重复：{skipped_facts} 事实、{skipped_timeline} 时间线、{skipped_states} 状态）"
+        # 直接使用提取的数量作为结果
+        message = f"成功提取 {len(new_facts)} 条事实、{len(new_timeline)} 条时间线、{len(new_states)} 条角色状态"
+        message += f"（已替换该章节的旧数据）"
 
         return ExtractResponse(
             success=True,
-            facts_count=len(unique_new_facts),
-            timeline_count=len(unique_new_timeline),
-            states_count=len(unique_new_states),
+            facts_count=len(new_facts),
+            timeline_count=len(new_timeline),
+            states_count=len(new_states),
             message=message
         )
 

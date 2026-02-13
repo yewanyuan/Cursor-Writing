@@ -148,11 +148,35 @@ class CanonStorage(BaseStorage):
         return result
 
     async def add_fact(self, project_id: str, fact: Fact) -> Fact:
-        """添加事实"""
+        """
+        添加事实（智能去重）
+
+        如果已存在相同 statement 的事实，则更新它；
+        否则追加新事实。
+        """
         if not fact.id:
             fact.id = generate_id("F")
         path = self._get_project_dir(project_id) / "canon" / "facts.jsonl"
-        await self.append_jsonl(path, fact.model_dump())
+        items = await self.read_jsonl(path)
+
+        # 检查是否已存在相同 statement 的事实（忽略大小写和首尾空格）
+        fact_key = fact.statement.strip().lower()
+        found_index = -1
+        for i, item in enumerate(items):
+            existing_key = item.get("statement", "").strip().lower()
+            if existing_key == fact_key:
+                found_index = i
+                break
+
+        if found_index >= 0:
+            # 更新现有事实，保持原 ID
+            fact.id = items[found_index].get("id", fact.id)
+            items[found_index] = fact.model_dump()
+            await self.write_jsonl(path, items)
+        else:
+            # 追加新事实
+            await self.append_jsonl(path, fact.model_dump())
+
         return fact
 
     async def update_fact(self, project_id: str, fact: Fact) -> bool:
@@ -339,11 +363,37 @@ class CanonStorage(BaseStorage):
         return self._sort_by_chapter(result, lambda e: e.source)
 
     async def add_timeline_event(self, project_id: str, event: TimelineEvent) -> TimelineEvent:
-        """添加时间线事件"""
+        """
+        添加时间线事件（智能去重）
+
+        如果已存在相同 (time, event) 的事件，则更新它；
+        否则追加新事件。
+        """
         if not event.id:
             event.id = generate_id("T")
         path = self._get_project_dir(project_id) / "canon" / "timeline.jsonl"
-        await self.append_jsonl(path, event.model_dump())
+        items = await self.read_jsonl(path)
+
+        # 检查是否已存在相同 (time, event) 的事件（忽略大小写和首尾空格）
+        time_key = event.time.strip()
+        event_key = event.event.strip().lower()
+        found_index = -1
+        for i, item in enumerate(items):
+            existing_time = item.get("time", "").strip()
+            existing_event = item.get("event", "").strip().lower()
+            if existing_time == time_key and existing_event == event_key:
+                found_index = i
+                break
+
+        if found_index >= 0:
+            # 更新现有事件，保持原 ID
+            event.id = items[found_index].get("id", event.id)
+            items[found_index] = event.model_dump()
+            await self.write_jsonl(path, items)
+        else:
+            # 追加新事件
+            await self.append_jsonl(path, event.model_dump())
+
         return event
 
     async def remove_timeline_by_source(self, project_id: str, source: str) -> int:
@@ -399,9 +449,30 @@ class CanonStorage(BaseStorage):
         return None
 
     async def update_character_state(self, project_id: str, state: CharacterState) -> CharacterState:
-        """更新角色状态（追加新状态）"""
+        """
+        更新角色状态（智能去重）
+
+        如果已存在相同 (character, chapter) 的状态，则更新它；
+        否则追加新状态。
+        """
         path = self._get_project_dir(project_id) / "canon" / "states.jsonl"
-        await self.append_jsonl(path, state.model_dump())
+        items = await self.read_jsonl(path)
+
+        # 检查是否已存在相同 (character, chapter) 的状态
+        found_index = -1
+        for i, item in enumerate(items):
+            if item.get("character") == state.character and item.get("chapter") == state.chapter:
+                found_index = i
+                break
+
+        if found_index >= 0:
+            # 更新现有状态
+            items[found_index] = state.model_dump()
+            await self.write_jsonl(path, items)
+        else:
+            # 追加新状态
+            await self.append_jsonl(path, state.model_dump())
+
         return state
 
     async def remove_states_by_chapter(self, project_id: str, chapter: str) -> int:

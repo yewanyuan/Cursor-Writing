@@ -419,6 +419,26 @@ Welcome to contribute via Issues and Pull Requests:
 
 ## 5. Changelog
 
+### 2026-02-13
+
+**Canon Deduplication Optimization**
+- Character States: Only one state record per character per chapter
+  - Modified `update_character_state()` to update instead of append for same (character, chapter)
+- Facts/Timeline: Exact match deduplication for manual additions
+  - Facts: Match by `statement` (case-insensitive, trimmed)
+  - Timeline: Match by `(time, event)`
+- AI Auto-extraction: Delete old chapter data before adding new extractions
+  - Solves duplicate issues caused by AI using different wording for same events
+
+**Input Component Optimization**
+- New `TagInput` component: For vocabulary-type inputs (preferred words, taboo words)
+  - Enter to add, click to delete, backspace to delete last
+- New `ListInput` component: For rule-type inputs (do's, don'ts, quality standards)
+  - Enter or button to add, inline editing, delete button
+- Replaced original Textarea inputs for better interaction experience
+
+---
+
 ### 2026-02-12
 
 **Reviewer Scoring System Optimization**

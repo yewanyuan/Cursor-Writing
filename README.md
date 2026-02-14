@@ -1,193 +1,193 @@
-# Cursor-Writing 幻笔·叙事中枢 小说创作助手
+# Cursor-Writing: Phantom Pen - Narrative Hub
 
-基于多智能体协作的辅助小说创作系统，通过模拟真实编辑部工作流程，解决长篇小说创作中的"遗忘"和"失控"问题。
+A multi-agent collaborative novel writing assistant that simulates a real editorial workflow to solve the "forgetting" and "losing control" problems in long-form fiction writing.
 
-中文 | **[English](README_EN.md)**
+**[中文文档](README_CN.md)** | English
 
-**主要功能**
+**Key Features**
 
-> 💡 提示：点击下方功能标题可展开查看详细说明
+> 💡 Tip: Click on feature titles below to expand detailed descriptions
 
 <details>
-<summary><b>1. 多智能体协作系统</b></summary>
+<summary><b>1. Multi-Agent Collaboration System</b></summary>
 
-四个专业 Agent 分工协作，模拟真实编辑部工作流程。
+Four specialized Agents work together, simulating a real editorial workflow.
 
-**智能体分工：**
-- **资料员 (Archivist)**：生成场景简报、提取事实、生成章节摘要
-- **撰稿人 (Writer)**：根据简报撰写草稿，支持续写和插入
-- **审稿人 (Reviewer)**：审核质量、检测与已知事实的冲突
-- **编辑 (Editor)**：根据审稿意见和用户反馈修订草稿
+**Agent Roles:**
+- **Archivist**: Generates scene briefs, extracts facts, creates chapter summaries
+- **Writer**: Writes drafts based on briefs, supports continuation and insertion
+- **Reviewer**: Reviews quality, detects conflicts with established facts
+- **Editor**: Revises drafts based on review feedback and user input
 
 </details>
 
 <details>
-<summary><b>2. 事实表系统 (Canon)</b></summary>
+<summary><b>2. Canon System (Fact Table)</b></summary>
 
-自动提取和维护小说中的事实，确保前后一致性。
+Automatically extracts and maintains facts from the novel to ensure consistency.
 
-**核心能力：**
-- 自动从章节提取事实、时间线事件、角色状态
-- 按章节顺序排序，支持智能筛选
-- 写作时自动注入相关事实，避免矛盾
-- 审稿时检测与已知事实的冲突
+**Core Capabilities:**
+- Auto-extract facts, timeline events, and character states from chapters
+- Sort by chapter order with smart filtering
+- Auto-inject relevant facts during writing to avoid contradictions
+- Detect conflicts with known facts during review
 
-**筛选策略：**
-- 重要性分级：critical / normal / minor
-- 角色关联性优先
-- 高置信度优先
-
-</details>
-
-<details>
-<summary><b>3. 上下文本体系统 (Ontology)</b></summary>
-
-结构化存储故事世界的核心信息，用于高效的上下文管理。
-
-**核心组件：**
-- **CharacterGraph**：角色关系图
-  - 角色节点（状态、位置、目标、别名、所属组织）
-  - 关系边（支持17种类型：亲属、社会、情感等）
-  - 路径查找、组织筛选
-- **WorldOntology**：世界观本体
-  - 世界规则（可标记为不可违反）
-  - 地点（支持层级关系）
-  - 势力/组织
-- **Timeline**：结构化时间线
-  - 事件（时间、参与者、地点、重要性、后果）
-
-**优势：**
-- Token 效率：结构化数据比纯文本节省约 90% token
-- 一致性检查：可检测与已知规则/事实的冲突
-- 精确场景上下文：只提取相关角色的关系和事件
-- 自动提取：章节定稿后自动更新本体
+**Filtering Strategies:**
+- Importance levels: critical / normal / minor
+- Character relevance priority
+- High confidence priority
 
 </details>
 
 <details>
-<summary><b>4. 设定卡片系统</b></summary>
+<summary><b>3. Context Ontology System</b></summary>
 
-结构化管理小说的各类设定信息。
+Structured storage of core story world information for efficient context management.
 
-**卡片类型：**
-- **角色卡**：身份、性格、说话风格、边界、人物关系
-- **世界观卡**：地理、历史、体系、组织等设定
-- **文风卡**：叙事距离、节奏、范文、推荐/禁用词汇
-- **规则卡**：必须遵守、禁止事项、质量标准
+**Core Components:**
+- **CharacterGraph**: Character relationship graph
+  - Character nodes (status, location, goals, aliases, organizations)
+  - Relationship edges (17 types: kinship, social, emotional, etc.)
+  - Path finding, organization filtering
+- **WorldOntology**: World-building ontology
+  - World rules (can be marked as unbreakable)
+  - Locations (hierarchical support)
+  - Factions/Organizations
+- **Timeline**: Structured timeline
+  - Events (time, participants, location, importance, consequences)
 
-</details>
-
-<details>
-<summary><b>5. 写作工作流</b></summary>
-
-完整的章节创作流程支持。
-
-**工作流程：**
-1. 创建章节，设置目标和出场角色
-2. 资料员生成场景简报
-3. 撰稿人生成初稿
-4. 审稿人审核，检测冲突
-5. 编辑修订，用户确认
-6. 定稿后自动提取事实
-
-**特性：**
-- 支持续写和中间插入
-- 多版本草稿管理
-- 待确认项标记 `[TO_CONFIRM: ...]`
+**Advantages:**
+- Token efficiency: Structured data saves ~90% tokens compared to plain text
+- Consistency checking: Can detect conflicts with known rules/facts
+- Precise scene context: Only extract relevant character relationships and events
+- Auto-extraction: Automatically update ontology after chapter finalization
 
 </details>
 
 <details>
-<summary><b>6. 小说导入功能</b></summary>
+<summary><b>4. Setting Cards System</b></summary>
 
-支持从已有小说文件导入，继续创作。
+Structured management of various novel settings.
 
-**支持格式：**
-- TXT 纯文本（自动检测编码：UTF-8/GBK/GB2312/GB18030/BIG5）
-- Markdown（支持 YAML Front Matter）
-- EPUB 电子书（自动解析元数据和章节结构）
-- PDF 文档
-
-**智能解析：**
-- 自动分解章节：支持「第X章」「Chapter X」「序章/楔子/尾声」等多种格式
-- 自动提取书名、作者信息
-- 导入前预览章节分解结果
-
-**AI 分析（可选）：**
-- 自动分析世界观设定
-- 自动识别主要角色及其特点
-- 自动提取文风特征
+**Card Types:**
+- **Character Card**: Identity, personality, speech style, boundaries, relationships
+- **World Card**: Geography, history, systems, organizations, etc.
+- **Style Card**: Narrative distance, pacing, example passages, recommended/forbidden words
+- **Rules Card**: Must-do's, don'ts, quality standards
 
 </details>
 
 <details>
-<summary><b>7. 多 LLM 提供商支持</b></summary>
+<summary><b>5. Writing Workflow</b></summary>
 
-灵活的 LLM 配置，支持多种提供商。
+Complete chapter creation process support.
 
-**支持的提供商：**
-- OpenAI (GPT-4o, GPT-5 系列, o1/o3 系列)
-- Anthropic (Claude 4.5, Claude 4.1 系列)
+**Workflow:**
+1. Create chapter, set goals and appearing characters
+2. Archivist generates scene brief
+3. Writer generates first draft
+4. Reviewer reviews, detects conflicts
+5. Editor revises, user confirms
+6. Auto-extract facts after finalization
+
+**Features:**
+- Support for continuation and mid-text insertion
+- Multi-version draft management
+- Pending confirmation markers `[TO_CONFIRM: ...]`
+
+</details>
+
+<details>
+<summary><b>6. Novel Import</b></summary>
+
+Support importing from existing novel files to continue writing.
+
+**Supported Formats:**
+- TXT plain text (auto-detect encoding: UTF-8/GBK/GB2312/GB18030/BIG5)
+- Markdown (supports YAML Front Matter)
+- EPUB e-books (auto-parse metadata and chapter structure)
+- PDF documents
+
+**Smart Parsing:**
+- Auto chapter splitting: Supports "Chapter X", "第X章", "Prologue/Epilogue", etc.
+- Auto-extract title and author information
+- Preview chapter breakdown before import
+
+**AI Analysis (Optional):**
+- Auto-analyze world-building settings
+- Auto-identify main characters and their traits
+- Auto-extract writing style characteristics
+
+</details>
+
+<details>
+<summary><b>7. Multi-LLM Provider Support</b></summary>
+
+Flexible LLM configuration with multiple provider support.
+
+**Supported Providers:**
+- OpenAI (GPT-4o, GPT-5 series, o1/o3 series)
+- Anthropic (Claude 4.5, Claude 4.1 series)
 - DeepSeek (deepseek-chat, deepseek-reasoner)
-- 自定义 OpenAI 兼容 API
+- Custom OpenAI-compatible API
 
-**配置方式：**
-- 通过设置页面在线配置
-- 通过 `.env` 文件配置
-- 支持为不同 Agent 指定不同模型
+**Configuration Methods:**
+- Configure online via settings page
+- Configure via `.env` file
+- Support assigning different models to different Agents
 
 </details>
 
 <details>
-<summary><b>8. 数据存储</b></summary>
+<summary><b>8. Data Storage</b></summary>
 
-Git 友好的文件存储结构。
+Git-friendly file storage structure.
 
-**存储格式：**
-- 项目配置：YAML
-- 草稿内容：Markdown
-- 事实表：JSONL
-- 设定卡片：YAML
+**Storage Formats:**
+- Project config: YAML
+- Draft content: Markdown
+- Fact table: JSONL
+- Setting cards: YAML
 
-**目录结构：**
+**Directory Structure:**
 ```
 data/projects/{project_id}/
-├── project.yaml          # 项目信息
-├── cards/                # 设定卡片
-│   ├── characters/       # 角色卡
-│   ├── world/            # 世界观卡
-│   ├── style.yaml        # 文风卡
-│   └── rules.yaml        # 规则卡
-├── drafts/               # 章节草稿
+├── project.yaml          # Project info
+├── cards/                # Setting cards
+│   ├── characters/       # Character cards
+│   ├── world/            # World cards
+│   ├── style.yaml        # Style card
+│   └── rules.yaml        # Rules card
+├── drafts/               # Chapter drafts
 │   └── {chapter}/
-│       ├── brief.yaml    # 场景简报
-│       ├── v1.md         # 草稿版本
-│       ├── review.yaml   # 审稿意见
-│       └── final.md      # 成稿
-├── canon/                # 事实表
-│   ├── facts.jsonl       # 事实
-│   ├── timeline.jsonl    # 时间线
-│   └── states.jsonl      # 角色状态
-└── ontology/             # 本体数据
-    └── story_ontology.yaml  # 结构化本体
+│       ├── brief.yaml    # Scene brief
+│       ├── v1.md         # Draft version
+│       ├── review.yaml   # Review feedback
+│       └── final.md      # Final version
+├── canon/                # Fact table
+│   ├── facts.jsonl       # Facts
+│   ├── timeline.jsonl    # Timeline
+│   └── states.jsonl      # Character states
+└── ontology/             # Ontology data
+    └── story_ontology.yaml  # Structured ontology
 ```
 
 </details>
 
-## 效果展示
+## Screenshots
 
-（待补充截图）
+(Screenshots to be added)
 
-## 1. 快速开始
+## 1. Quick Start
 
-### 1.1. 环境要求
+### 1.1. Requirements
 
 - Python 3.10+
 - Node.js 18+
-- 现代浏览器
-- 可用网络（需访问 LLM API）
+- Modern browser
+- Network access (for LLM API)
 
-### 1.2. 后端安装
+### 1.2. Backend Installation
 
 ```bash
 cd backend
@@ -196,31 +196,31 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 1.3. 前端安装
+### 1.3. Frontend Installation
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 1.4. 配置
+### 1.4. Configuration
 
-**方式一：通过设置页面配置（推荐）**
+**Method 1: Configure via Settings Page (Recommended)**
 
-启动应用后，在设置页面直接填写 API Key 并保存。
+After starting the app, fill in your API Key in the settings page and save.
 
-**方式二：通过 .env 文件配置**
+**Method 2: Configure via .env File**
 
 ```bash
 cd backend
 cp .env.example .env
-# 编辑 .env，填入 API Key
-# 例如：DEEPSEEK_API_KEY=sk-your-key
+# Edit .env, fill in API Key
+# Example: DEEPSEEK_API_KEY=sk-your-key
 ```
 
-### 1.5. 启动
+### 1.5. Starting the Application
 
-**方式一：一键启动（推荐）**
+**Method 1: One-Click Start (Recommended)**
 
 ```bash
 # Linux / macOS
@@ -230,481 +230,481 @@ cp .env.example .env
 start.bat
 ```
 
-首次运行会自动安装依赖。使用 `./stop.sh` 或 `stop.bat` 停止服务。
+First run will auto-install dependencies. Use `./stop.sh` or `stop.bat` to stop services.
 
-**方式二：手动启动**
+**Method 2: Manual Start**
 
 ```bash
-# 启动后端（终端 1）
+# Start backend (Terminal 1)
 cd backend
 source venv/bin/activate  # Windows: venv\Scripts\activate
 python -m app.main
-# 后端运行在 http://localhost:8000
+# Backend runs at http://localhost:8000
 
-# 启动前端（终端 2）
+# Start frontend (Terminal 2)
 cd frontend
 npm run dev
-# 前端运行在 http://localhost:5173
+# Frontend runs at http://localhost:5173
 ```
 
-## 2. 架构
+## 2. Architecture
 
-采用前后端分离架构，后端基于 FastAPI，前端基于 React + TypeScript。
+Frontend-backend separation architecture with FastAPI backend and React + TypeScript frontend.
 
-### 2.1. 核心模块
+### 2.1. Core Modules
 
 <details>
-<summary><b>agents/ - 智能体系统</b></summary>
+<summary><b>agents/ - Agent System</b></summary>
 
-**文件：**
-- `base.py` - 基类，提供 LLM 调用、XML 解析等通用能力
-- `archivist.py` - 资料员：场景简报、事实提取、摘要生成
-- `writer.py` - 撰稿人：草稿生成、续写、插入
-- `reviewer.py` - 审稿人：质量审核、冲突检测
-- `editor.py` - 编辑：根据反馈修订草稿
+**Files:**
+- `base.py` - Base class providing LLM calls, XML parsing, etc.
+- `archivist.py` - Archivist: scene briefs, fact extraction, summary generation
+- `writer.py` - Writer: draft generation, continuation, insertion
+- `reviewer.py` - Reviewer: quality review, conflict detection
+- `editor.py` - Editor: revise drafts based on feedback
 
 </details>
 
 <details>
-<summary><b>storage/ - 存储层</b></summary>
+<summary><b>storage/ - Storage Layer</b></summary>
 
-**文件：**
-- `base.py` - 基类，YAML/JSONL/Markdown 读写
-- `project.py` - 项目存储
-- `card.py` - 设定卡片存储
-- `draft.py` - 草稿存储
-- `canon.py` - 事实表存储（含智能筛选）
-- `ontology.py` - 本体存储（角色图、世界观、时间线）
-
-</details>
-
-<details>
-<summary><b>llm/ - LLM 网关</b></summary>
-
-**文件：**
-- `providers.py` - 提供商适配器（OpenAI/Anthropic/DeepSeek/Custom）
-- `client.py` - 统一客户端，支持重试和提供商切换
+**Files:**
+- `base.py` - Base class for YAML/JSONL/Markdown read/write
+- `project.py` - Project storage
+- `card.py` - Setting cards storage
+- `draft.py` - Draft storage
+- `canon.py` - Fact table storage (with smart filtering)
+- `ontology.py` - Ontology storage (character graph, world-building, timeline)
 
 </details>
 
 <details>
-<summary><b>core/ - 核心业务</b></summary>
+<summary><b>llm/ - LLM Gateway</b></summary>
 
-**文件：**
-- `orchestrator.py` - 工作流编排器
-- `context.py` - 上下文管理
-- `budgeter.py` - Token 预算管理
-- `cache.py` - 缓存管理
+**Files:**
+- `providers.py` - Provider adapters (OpenAI/Anthropic/DeepSeek/Custom)
+- `client.py` - Unified client with retry and provider switching
 
 </details>
 
 <details>
-<summary><b>api/ - API 路由</b></summary>
+<summary><b>core/ - Core Business Logic</b></summary>
 
-**路由：**
-- `/api/projects` - 项目管理
-- `/api/projects/{id}/cards` - 设定卡片
-- `/api/projects/{id}/drafts` - 草稿管理
-- `/api/projects/{id}/canon` - 事实表
-- `/api/ontology/{id}` - 本体数据（角色、关系、时间线、规则）
-- `/api/settings` - 全局设置
-- `/api/statistics` - 写作统计
+**Files:**
+- `orchestrator.py` - Workflow orchestrator
+- `context.py` - Context management
+- `budgeter.py` - Token budget management
+- `cache.py` - Cache management
 
 </details>
 
-### 2.2. 项目结构
+<details>
+<summary><b>api/ - API Routes</b></summary>
+
+**Routes:**
+- `/api/projects` - Project management
+- `/api/projects/{id}/cards` - Setting cards
+- `/api/projects/{id}/drafts` - Draft management
+- `/api/projects/{id}/canon` - Fact table
+- `/api/ontology/{id}` - Ontology data (characters, relationships, timeline, rules)
+- `/api/settings` - Global settings
+- `/api/statistics` - Writing statistics
+
+</details>
+
+### 2.2. Project Structure
 
 ```
 Cursor-Writing/
-├── start.sh              # 一键启动 (Linux/macOS)
-├── start.bat             # 一键启动 (Windows)
-├── stop.sh               # 停止服务 (Linux/macOS)
-├── stop.bat              # 停止服务 (Windows)
+├── start.sh              # One-click start (Linux/macOS)
+├── start.bat             # One-click start (Windows)
+├── stop.sh               # Stop services (Linux/macOS)
+├── stop.bat              # Stop services (Windows)
 ├── backend/
 │   ├── app/
-│   │   ├── agents/       # 智能体系统
-│   │   ├── api/          # API 路由
-│   │   ├── core/         # 核心业务逻辑
-│   │   ├── llm/          # LLM 网关
-│   │   ├── models/       # Pydantic 数据模型
-│   │   ├── services/     # 服务（导出、统计）
-│   │   ├── storage/      # 存储层
-│   │   ├── utils/        # 工具函数
-│   │   ├── config.py     # 配置管理
-│   │   └── main.py       # 入口
-│   ├── config.yaml       # 配置文件
-│   ├── .env              # 环境变量（不提交）
-│   └── requirements.txt  # Python 依赖
+│   │   ├── agents/       # Agent system
+│   │   ├── api/          # API routes
+│   │   ├── core/         # Core business logic
+│   │   ├── llm/          # LLM gateway
+│   │   ├── models/       # Pydantic data models
+│   │   ├── services/     # Services (export, statistics)
+│   │   ├── storage/      # Storage layer
+│   │   ├── utils/        # Utility functions
+│   │   ├── config.py     # Configuration
+│   │   └── main.py       # Entry point
+│   ├── config.yaml       # Config file
+│   ├── .env              # Environment variables (not committed)
+│   └── requirements.txt  # Python dependencies
 ├── frontend/
 │   ├── src/
-│   │   ├── api/          # API 调用
-│   │   ├── components/   # UI 组件
-│   │   ├── pages/        # 页面
-│   │   └── types/        # TypeScript 类型
+│   │   ├── api/          # API calls
+│   │   ├── components/   # UI components
+│   │   ├── pages/        # Pages
+│   │   └── types/        # TypeScript types
 │   ├── package.json
 │   └── vite.config.ts
-├── data/                 # 数据目录
+├── data/                 # Data directory
 └── .gitignore
 ```
 
-## 3. API 文档
+## 3. API Documentation
 
-启动后端后访问：
-- Swagger UI：http://localhost:8000/docs
-- ReDoc：http://localhost:8000/redoc
+After starting backend, visit:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-**核心接口：**
+**Core Endpoints:**
 
 ```
-# 项目管理
-GET    /api/projects                    # 项目列表
-POST   /api/projects                    # 创建项目
-GET    /api/projects/{id}               # 项目详情
+# Project Management
+GET    /api/projects                    # List projects
+POST   /api/projects                    # Create project
+GET    /api/projects/{id}               # Project details
 
-# 设定卡片
-GET    /api/projects/{id}/cards/characters      # 角色列表
-POST   /api/projects/{id}/cards/characters      # 创建角色
-GET    /api/projects/{id}/cards/style           # 文风卡
-PUT    /api/projects/{id}/cards/style           # 更新文风
+# Setting Cards
+GET    /api/projects/{id}/cards/characters      # List characters
+POST   /api/projects/{id}/cards/characters      # Create character
+GET    /api/projects/{id}/cards/style           # Style card
+PUT    /api/projects/{id}/cards/style           # Update style
 
-# 草稿管理
-GET    /api/projects/{id}/drafts/chapters       # 章节列表
-POST   /api/projects/{id}/drafts/chapters       # 创建章节
-POST   /api/projects/{id}/drafts/{ch}/generate  # 生成草稿
-POST   /api/projects/{id}/drafts/{ch}/continue  # 续写
+# Draft Management
+GET    /api/projects/{id}/drafts/chapters       # List chapters
+POST   /api/projects/{id}/drafts/chapters       # Create chapter
+POST   /api/projects/{id}/drafts/{ch}/generate  # Generate draft
+POST   /api/projects/{id}/drafts/{ch}/continue  # Continue writing
 
-# 事实表
-GET    /api/projects/{id}/canon/facts           # 事实列表
-GET    /api/projects/{id}/canon/timeline        # 时间线
-GET    /api/projects/{id}/canon/states          # 角色状态
+# Fact Table
+GET    /api/projects/{id}/canon/facts           # List facts
+GET    /api/projects/{id}/canon/timeline        # Timeline
+GET    /api/projects/{id}/canon/states          # Character states
 
-# 本体数据
-GET    /api/ontology/{id}/overview              # 本体概览
-GET    /api/ontology/{id}/characters            # 角色节点列表
-GET    /api/ontology/{id}/relationships         # 角色关系
-GET    /api/ontology/{id}/timeline              # 结构化时间线
-GET    /api/ontology/{id}/rules                 # 世界规则
-GET    /api/ontology/{id}/context/writing       # 写作上下文
-GET    /api/ontology/{id}/context/review        # 审稿上下文
+# Ontology Data
+GET    /api/ontology/{id}/overview              # Ontology overview
+GET    /api/ontology/{id}/characters            # Character nodes
+GET    /api/ontology/{id}/relationships         # Character relationships
+GET    /api/ontology/{id}/timeline              # Structured timeline
+GET    /api/ontology/{id}/rules                 # World rules
+GET    /api/ontology/{id}/context/writing       # Writing context
+GET    /api/ontology/{id}/context/review        # Review context
 
-# 设置
-GET    /api/settings                    # 获取设置
-PUT    /api/settings                    # 更新设置
-POST   /api/settings/test-connection    # 测试连接
+# Settings
+GET    /api/settings                    # Get settings
+PUT    /api/settings                    # Update settings
+POST   /api/settings/test-connection    # Test connection
 ```
 
-## 4. 开发与贡献
+## 4. Development & Contributing
 
-### 4.1. 开发环境
+### 4.1. Development Environment
 
 ```bash
-# 后端
+# Backend
 cd backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# 前端
+# Frontend
 cd frontend
 npm install
 npm run dev
 ```
 
-### 4.2. 贡献指南
+### 4.2. Contributing Guide
 
-欢迎通过 Issue 与 Pull Request 参与贡献：
-- 功能改进与性能优化
-- Bug 修复与文档完善
-- 新 LLM 提供商适配
+Welcome to contribute via Issues and Pull Requests:
+- Feature improvements and performance optimization
+- Bug fixes and documentation improvements
+- New LLM provider adapters
 
-## 5. 更新日志
+## 5. Changelog
 
 ### 2026-02-13
 
-**事实表去重优化**
-- 角色状态：同一角色在同一章节只保留一条状态记录
-  - 修改 `update_character_state()` 方法，相同 (character, chapter) 时更新而非追加
-- 事实/时间线：手动添加时精确匹配去重
-  - 事实：基于 `statement` 匹配（忽略大小写和首尾空格）
-  - 时间线：基于 `(time, event)` 匹配
-- AI 自动提取：重新提取时先删除该章节旧数据再添加新数据
-  - 解决 AI 每次用不同措辞描述同一事件导致的重复问题
+**Canon Deduplication Optimization**
+- Character States: Only one state record per character per chapter
+  - Modified `update_character_state()` to update instead of append for same (character, chapter)
+- Facts/Timeline: Exact match deduplication for manual additions
+  - Facts: Match by `statement` (case-insensitive, trimmed)
+  - Timeline: Match by `(time, event)`
+- AI Auto-extraction: Delete old chapter data before adding new extractions
+  - Solves duplicate issues caused by AI using different wording for same events
 
-**输入组件优化**
-- 新增 `TagInput` 组件：用于词汇类输入（常用词汇、禁用词汇）
-  - 支持回车添加、点击删除、退格删除最后一个
-- 新增 `ListInput` 组件：用于规则类输入（必须遵守、禁止事项、质量标准）
-  - 支持回车或按钮添加、内联编辑、删除
-- 替换原有 Textarea 输入方式，提升交互体验
+**Input Component Optimization**
+- New `TagInput` component: For vocabulary-type inputs (preferred words, taboo words)
+  - Enter to add, click to delete, backspace to delete last
+- New `ListInput` component: For rule-type inputs (do's, don'ts, quality standards)
+  - Enter or button to add, inline editing, delete button
+- Replaced original Textarea inputs for better interaction experience
 
 ---
 
 ### 2026-02-12
 
-**审稿人评分系统优化**
-- 修复审稿评分始终为 0.50-0.60 导致无限重写的问题
-  - 原因：冲突检测对评分设置了硬性上限（0.6），低于质量阈值（0.7）
-  - 修复：改为惩罚式扣分（每个冲突扣 0.05，上限扣 0.2）
-- 增强冲突验证，过滤 LLM 返回的空冲突和占位符冲突
-- 撰稿人重写时现在会接收并使用审稿意见
-  - 新增 `review_feedback` 和 `review_issues` 参数传递
-  - 重写 prompt 包含上次审稿的具体问题列表
+**Reviewer Scoring System Optimization**
+- Fixed issue where review scores were always 0.50-0.60, causing infinite rewrites
+  - Cause: Conflict detection set a hard cap on scores (0.6), below quality threshold (0.7)
+  - Fix: Changed to penalty-based scoring (0.05 per conflict, max 0.2 deduction)
+- Enhanced conflict validation to filter empty and placeholder conflicts from LLM
+- Writer now receives and uses review feedback during rewrites
+  - Added `review_feedback` and `review_issues` parameter passing
+  - Rewrite prompt includes specific issues from previous review
 
-**续写/插入功能修复**
-- 修复使用"修改"按钮后内容不更新的问题
-  - 原因：`skipNextDraftLoad` 标志在续写后未被正确重置
-- 修复插入功能生成的内容与后续段落重复的问题
-  - 优化插入 prompt，明确要求不重复后文内容
-- 修复使用"修改"后全章节被错误高亮的问题
-  - 新增 `isRevisionMode` 标志，修订模式下保持当前高亮范围
+**Continuation/Insertion Feature Fixes**
+- Fixed issue where "Revise" button didn't update content
+  - Cause: `skipNextDraftLoad` flag not properly reset after continuation
+- Fixed insertion generating duplicate content with following paragraphs
+  - Optimized insertion prompt to explicitly avoid repeating subsequent content
+- Fixed entire chapter being incorrectly highlighted after revision
+  - Added `isRevisionMode` flag to maintain current highlight range in revision mode
 
-**界面优化**
-- 文风设定板块全新设计
-  - 卡片式布局，渐变色标题栏
-  - 自定义单选按钮设计（叙事距离、叙事节奏）
-  - 颜色编码区分不同设置区域
-  - 词汇/范文数量徽章显示
-- 规则设定板块全新设计
-  - 三栏布局（必须遵守/禁止事项/质量标准）
-  - 颜色编码卡片（绿/红/琥珀）
-  - 自定义图标和中英文标签
-  - 底部小贴士说明卡片
+**UI Optimization**
+- Complete redesign of Style settings panel
+  - Card-based layout with gradient title bars
+  - Custom radio button design (narrative distance, pacing)
+  - Color-coded sections for different settings
+  - Count badges for vocabulary/passages
+- Complete redesign of Rules settings panel
+  - Three-column layout (Do's/Don'ts/Standards)
+  - Color-coded cards (green/red/amber)
+  - Custom icons with bilingual labels
+  - Help tips card at bottom
 
 ---
 
 ### 2026-02-10
 
-**项目信息编辑功能**
-- 新增项目信息编辑功能
-  - 支持修改作品名称、作者、类型、简介
-  - 新增 `ProjectUpdate` 模型（支持部分更新）
-  - 新增 `PUT /api/projects/{id}` 端点
-  - 工作区页面标题旁新增编辑按钮
+**Project Info Editing**
+- Added project info editing functionality
+  - Support modifying title, author, genre, description
+  - Added `ProjectUpdate` model (supports partial updates)
+  - Added `PUT /api/projects/{id}` endpoint
+  - Added edit button next to workspace page title
 
-**Bug 修复**
-- 修复 `ReviewerAgent.__init__()` 参数错误导致 AI 写作三大功能（创作新章节、续写、插入）失效的问题
-  - 原因：`ReviewerAgent` 重写了 `__init__` 但未接收 storage 参数
-  - 修复：正确传递 `card_storage`、`canon_storage`、`draft_storage` 到父类
+**Bug Fixes**
+- Fixed `ReviewerAgent.__init__()` parameter error causing AI writing features (new chapter, continue, insert) to fail
+  - Cause: `ReviewerAgent` overrode `__init__` without accepting storage parameters
+  - Fix: Properly pass `card_storage`, `canon_storage`, `draft_storage` to parent class
 
-**小说导入功能**
-- 新增小说导入服务 `services/importer.py`
-  - 支持 TXT、Markdown、EPUB、PDF 四种格式
-  - 自动章节分解：支持多种章节标题格式（第X章、Chapter X、序章/楔子/尾声等）
-  - 多编码支持：自动检测 UTF-8/GBK/GB2312/GB18030/BIG5
-  - EPUB：解析 OPF 元数据和阅读顺序
-  - PDF：使用 pypdf 提取文本
-- 新增导入 API `/api/import`
-  - `POST /import/preview` - 预览解析结果（不创建项目）
-  - `POST /import/import` - 导入小说并创建项目
-  - `GET /import/formats` - 获取支持的格式列表
-- AI 分析功能（可选）
-  - 自动分析世界观设定
-  - 自动识别主要角色及其特点
-  - 自动提取文风特征（叙事距离、节奏、句式等）
-- 前端导入界面
-  - 首页新增「导入小说」按钮
-  - 文件上传与解析预览
-  - 章节列表确认
-  - 导入选项设置（项目名、类型、是否 AI 分析）
-- 新增依赖：beautifulsoup4、lxml、pypdf
+**Novel Import Feature**
+- Added novel import service `services/importer.py`
+  - Supports TXT, Markdown, EPUB, PDF formats
+  - Auto chapter splitting: Multiple chapter title formats
+  - Multi-encoding support: UTF-8/GBK/GB2312/GB18030/BIG5
+  - EPUB: Parse OPF metadata and reading order
+  - PDF: Extract text using pypdf
+- Added import API `/api/import`
+  - `POST /import/preview` - Preview parsing result
+  - `POST /import/import` - Import novel and create project
+  - `GET /import/formats` - Get supported formats
+- AI analysis (optional)
+  - Auto-analyze world-building
+  - Auto-identify main characters
+  - Auto-extract style characteristics
+- Frontend import interface
+  - Added "Import Novel" button on home page
+  - File upload and parsing preview
+  - Chapter list confirmation
+  - Import options (project name, genre, AI analysis)
+- New dependencies: beautifulsoup4, lxml, pypdf
 
 ---
 
 ### 2026-02-09
 
-**事实表批量删除功能**
-- 新增批量删除 API 端点
-  - `POST /projects/{id}/canon/facts/batch-delete` - 批量删除事实
-  - `POST /projects/{id}/canon/timeline/batch-delete` - 批量删除时间线
-  - `POST /projects/{id}/canon/states/batch-delete` - 批量删除角色状态
-- 前端事实表三个板块添加复选框和批量删除按钮
-  - 支持全选/取消全选
-  - 显示已选数量
-  - 批量删除确认提示
+**Fact Table Batch Delete**
+- Added batch delete API endpoints
+  - `POST /projects/{id}/canon/facts/batch-delete`
+  - `POST /projects/{id}/canon/timeline/batch-delete`
+  - `POST /projects/{id}/canon/states/batch-delete`
+- Frontend fact table panels now have checkboxes and batch delete buttons
+  - Select all/deselect all
+  - Show selected count
+  - Batch delete confirmation
 
-**自动提取去重优化**
-- 提取前检测已有数据，自动跳过重复条目
-  - 事实：基于描述文本去重（忽略大小写）
-  - 时间线：基于 (时间, 事件描述) 组合去重
-  - 角色状态：基于 (角色名, 章节) 组合去重
-- 提取结果显示跳过的重复条目数量
+**Auto-Extraction Deduplication**
+- Check existing data before extraction, auto-skip duplicates
+  - Facts: Dedupe by description text (case-insensitive)
+  - Timeline: Dedupe by (time, event description) combination
+  - Character states: Dedupe by (character name, chapter) combination
+- Extraction results show skipped duplicate count
 
-**Bug 修复**
-- 修复自动提取功能 `get_final()` 返回值类型错误
-- 修复存储类默认初始化缺少参数问题
+**Bug Fixes**
+- Fixed auto-extraction `get_final()` return type error
+- Fixed storage class default initialization missing parameters
 
 ---
 
 ### 2026-02-06
 
-**上下文本体建模系统**
-- 新增结构化本体模型 `models/ontology.py`
-  - **CharacterGraph**：角色关系图（节点状态、17种关系类型、路径查找）
-  - **WorldOntology**：世界观本体（规则、地点、势力）
-  - **Timeline**：时间线（事件、参与者、重要性分级）
-  - **StoryOntology**：聚合本体，提供上下文生成方法
-- 新增本体存储层 `storage/ontology.py`
-  - 角色/关系/事件/规则/地点/势力的增删改查
-  - `get_writing_context()` 和 `get_review_context()` 按 token 预算输出紧凑上下文
-  - 支持从指定章节重建本体
-- 新增本体提取服务 `services/ontology_extractor.py`
-  - 从章节内容自动提取结构化本体信息
-  - 使用 LLM 进行 JSON 格式化提取
-  - 支持长文本分段处理
-- 新增本体 API `/api/ontology`
-  - 概览、角色、关系、时间线、规则查询
-  - 写作/审稿上下文获取
-  - 本体重建和清空
+**Context Ontology Modeling System**
+- Added structured ontology models `models/ontology.py`
+  - **CharacterGraph**: Character relationship graph (node states, 17 relationship types, path finding)
+  - **WorldOntology**: World-building ontology (rules, locations, factions)
+  - **Timeline**: Timeline (events, participants, importance levels)
+  - **StoryOntology**: Aggregate ontology with context generation methods
+- Added ontology storage layer `storage/ontology.py`
+  - CRUD for characters/relationships/events/rules/locations/factions
+  - `get_writing_context()` and `get_review_context()` output compact context within token budget
+  - Support rebuilding ontology from specific chapter
+- Added ontology extraction service `services/ontology_extractor.py`
+  - Auto-extract structured ontology from chapter content
+  - Use LLM for JSON-formatted extraction
+  - Support long text segmented processing
+- Added ontology API `/api/ontology`
+  - Overview, characters, relationships, timeline, rules queries
+  - Writing/review context retrieval
+  - Ontology rebuild and clear
 
-**Agent 本体集成**
-- Archivist：生成场景简报时使用本体上下文；提取事实后自动更新本体
-- Reviewer：审稿时使用本体上下文进行一致性检查
+**Agent Ontology Integration**
+- Archivist: Use ontology context when generating scene briefs; auto-update ontology after fact extraction
+- Reviewer: Use ontology context for consistency checking during review
 
-**LLM 配置优化**
-- 所有 LLM 提供商（OpenAI/Anthropic/DeepSeek）支持自定义 Base URL
-- 设置页面新增 Base URL 输入框，支持代理/中转服务
+**LLM Configuration Optimization**
+- All LLM providers (OpenAI/Anthropic/DeepSeek) support custom Base URL
+- Settings page added Base URL input for proxy/relay services
 
 ---
 
 ### 2026-02-03
 
-**界面主题优化**
-- 应用 Cupcake 主题（清新可爱风格）
-- 新增深色模式切换功能，支持浅色/深色/跟随系统三种模式
-- 所有页面添加主题切换按钮
+**UI Theme Optimization**
+- Applied Cupcake theme (fresh and cute style)
+- Added dark mode toggle with light/dark/system modes
+- Added theme toggle button to all pages
 
-**事实表系统优化**
-- Canon 显示区域改为自适应高度，随窗口大小自动调整
-- CharacterState 新增 `inventory`（持有物品）和 `relationships`（人物关系）字段
-- 角色状态编辑弹窗支持物品和关系的输入
-- Writer/Reviewer 上下文注入包含物品和关系信息
+**Fact Table System Optimization**
+- Canon display area now adaptive height, auto-adjusts with window size
+- CharacterState added `inventory` and `relationships` fields
+- Character state edit dialog supports items and relationships input
+- Writer/Reviewer context injection includes items and relationships
 
-**事实提取标准优化**
-- 重写 Archivist 事实提取 prompt，明确提取标准
-- 过滤琐碎事实：不再提取"走在路上"、"攥紧拳头"、"眯起眼"等临时动作
-- 事实合并：相关信息合并为一条，避免碎片化
-- 数量控制：每章事实控制在 5-15 条，宁缺毋滥
-- 重要性分级说明：critical（核心设定）> normal（一般事实）> minor（细节补充）
-- 角色状态仅记录章节结束时的持续状态快照
+**Fact Extraction Standards Optimization**
+- Rewrote Archivist fact extraction prompt with clear standards
+- Filter trivial facts: No longer extract temporary actions like "walking", "clenching fist", etc.
+- Fact merging: Related info merged into one entry
+- Quantity control: 5-15 facts per chapter, quality over quantity
+- Importance levels: critical (core settings) > normal (general facts) > minor (details)
+- Character states only record persistent state snapshots at chapter end
 
 ---
 
 ### 2026-02-02
 
-**事实表系统优化**
-- 新增 `characters` 和 `importance` 字段，支持智能筛选
-- 实现按章节顺序排序（支持"第一章"、"第1章"、"ch1"等格式）
-- 实现智能筛选策略（按重要性、角色关联性、置信度）
-- Writer 筛选：20条事实 + 10条时间线 + 出场角色状态
-- Reviewer 筛选：50条事实 + 30条时间线 + 出场角色状态
-- 新增章节重建功能 `rebuild_chapter_canon()`
+**Fact Table System Optimization**
+- Added `characters` and `importance` fields for smart filtering
+- Implemented chapter order sorting (supports "Chapter 1", "第一章", "ch1", etc.)
+- Implemented smart filtering strategies (by importance, character relevance, confidence)
+- Writer filtering: 20 facts + 10 timeline events + appearing character states
+- Reviewer filtering: 50 facts + 30 timeline events + appearing character states
+- Added chapter canon rebuild function `rebuild_chapter_canon()`
 
-**设置页面优化**
-- 修复下拉菜单背景透明问题（补充 popover CSS 变量）
-- 模型选择改为 Select + 自定义输入模式，支持手动输入新模型
-- 更新预设模型列表（GPT-5.x, Claude 4.x, o3 等）
-- 修复测试连接时空 API Key 导致 401 错误
-- 修复设置保存后 LLM 客户端未重建问题（新增 `reset_client()`）
-- 过滤 `${VAR}` 未解析的环境变量占位符
+**Settings Page Optimization**
+- Fixed dropdown menu transparent background issue
+- Model selection changed to Select + custom input mode
+- Updated preset model list (GPT-5.x, Claude 4.x, o3, etc.)
+- Fixed empty API Key causing 401 error during connection test
+- Fixed LLM client not rebuilding after settings save (added `reset_client()`)
+- Filter unresolved `${VAR}` environment variable placeholders
 
-**四大设定面板完善**
-- 角色卡：完整注入到所有 Agent（identity, personality, speech_pattern, boundaries）
-- 世界观卡：扩展到 Writer/Reviewer/Editor（之前仅 Archivist 使用）
-- 文风卡：vocabulary 和 taboo_words 全面注入
-- 规则卡：dos/donts/quality_standards 全面使用
+**Four Setting Panels Enhancement**
+- Character Card: Fully injected to all Agents (identity, personality, speech_pattern, boundaries)
+- World Card: Extended to Writer/Reviewer/Editor (previously only Archivist)
+- Style Card: vocabulary and taboo_words fully injected
+- Rules Card: dos/donts/quality_standards fully utilized
 
-**其他修复**
-- 统计页面 `created_at` 改用文件 mtime（之前始终为当前时间）
-- Canon 系统 `extract_facts()` 解析修复（之前返回原始响应）
-- Orchestrator `_finalize()` 自动保存提取的事实到存储
+**Other Fixes**
+- Statistics page `created_at` now uses file mtime
+- Canon system `extract_facts()` parsing fix
+- Orchestrator `_finalize()` auto-saves extracted facts to storage
 
 ---
 
 ### 2026-01-30
 
-**导出与统计功能**
-- 新增导出服务 `exporter.py`，支持导出为 TXT/Markdown/EPUB 格式
-- 新增统计服务 `statistics.py`，提供写作数据统计
-- 新增统计页面 `StatsPage.tsx`，展示创作天数、字数、章节等数据
-- 新增导出 API `/api/projects/{id}/export`
+**Export & Statistics Features**
+- Added export service `exporter.py`, supports TXT/Markdown/EPUB formats
+- Added statistics service `statistics.py` for writing data statistics
+- Added statistics page `StatsPage.tsx` showing creation days, word count, chapters, etc.
+- Added export API `/api/projects/{id}/export`
 
-**Agent 系统增强**
-- Archivist：增强事实提取能力，支持解析 FACT/EVENT/STATE 格式
-- Reviewer：增强冲突检测，支持 `<conflicts>` 标签解析
-- Writer：优化上下文注入
+**Agent System Enhancement**
+- Archivist: Enhanced fact extraction, supports FACT/EVENT/STATE format parsing
+- Reviewer: Enhanced conflict detection, supports `<conflicts>` tag parsing
+- Writer: Optimized context injection
 
-**工作区优化**
-- ProjectWorkspace 页面大幅优化，改善用户体验
-- WritingPage 支持更多交互功能
+**Workspace Optimization**
+- Major ProjectWorkspace page optimization
+- WritingPage supports more interactive features
 
 ---
 
 ### 2026-01-23
 
-**续写与插入功能**
-- Writer Agent 新增 `continue_writing()` 方法
-- 支持末尾续写和中间插入两种模式
-- 自动合并内容并保存新版本
+**Continuation & Insertion Features**
+- Writer Agent added `continue_writing()` method
+- Supports end continuation and mid-text insertion modes
+- Auto-merge content and save new version
 
-**核心系统完善**
-- 新增 Token 预算管理器 `budgeter.py`
-- 新增缓存管理器 `cache.py`
-- 上下文管理器 `context.py` 大幅增强
-- Orchestrator 工作流编排优化
+**Core System Improvements**
+- Added Token budget manager `budgeter.py`
+- Added cache manager `cache.py`
+- Major context manager `context.py` enhancement
+- Orchestrator workflow optimization
 
-**草稿存储增强**
-- 支持多版本草稿管理
-- 新增章节排序（支持中文数字、阿拉伯数字、特殊章节）
+**Draft Storage Enhancement**
+- Multi-version draft management support
+- Added chapter sorting (Chinese/Arabic numbers, special chapters)
 
-**前端优化**
-- WritingPage 大幅重构，支持续写/插入交互
-- 新增会话管理 API
+**Frontend Optimization**
+- Major WritingPage refactor with continuation/insertion interaction
+- Added session management API
 
 ---
 
 ### 2026-01-14 ~ 2026-01-15
 
-**项目初始化**
-- 前后端基础架构搭建
-- React + TypeScript + Vite 前端
-- FastAPI + Pydantic 后端
+**Project Initialization**
+- Frontend/backend architecture setup
+- React + TypeScript + Vite frontend
+- FastAPI + Pydantic backend
 
-**智能体系统**
-- 实现四个核心 Agent：Archivist、Writer、Reviewer、Editor
-- 基类 `BaseAgent` 提供 LLM 调用、XML 解析等通用能力
+**Agent System**
+- Implemented four core Agents: Archivist, Writer, Reviewer, Editor
+- Base class `BaseAgent` providing LLM calls, XML parsing, etc.
 
-**存储系统**
-- 实现 YAML/JSONL/Markdown 文件存储
-- 项目、卡片、草稿、事实表存储模块
+**Storage System**
+- Implemented YAML/JSONL/Markdown file storage
+- Project, cards, drafts, fact table storage modules
 
-**API 路由**
-- 项目管理、设定卡片、草稿管理、事实表、设置等完整 API
+**API Routes**
+- Complete API for projects, setting cards, drafts, fact table, settings
 
-**LLM 网关**
-- 多提供商支持（OpenAI/Anthropic/DeepSeek/Custom）
-- 统一客户端，支持重试和提供商切换
+**LLM Gateway**
+- Multi-provider support (OpenAI/Anthropic/DeepSeek/Custom)
+- Unified client with retry and provider switching
 
-**UI 组件库**
-- 基于 Radix UI 的组件库（Button、Card、Dialog、Select 等）
-- Tailwind CSS 样式系统
+**UI Component Library**
+- Radix UI-based components (Button, Card, Dialog, Select, etc.)
+- Tailwind CSS styling system
 
 ---
 
 ### 2026-01-08
 
-**项目重启**
-- 替换旧代码库，采用新架构重新设计
-- 确定多智能体协作 + 事实表系统的核心方案
+**Project Restart**
+- Replaced old codebase with new architecture
+- Finalized multi-agent collaboration + fact table system design
 
 ---
 
-## 致谢
+## Acknowledgments
 
-- 感谢 FastAPI、React、Tailwind CSS 等开源项目
-- 感谢 OpenAI、Anthropic、DeepSeek 提供的 LLM API
+- Thanks to FastAPI, React, Tailwind CSS and other open-source projects
+- Thanks to OpenAI, Anthropic, DeepSeek for LLM API services
 
 ---
 
-版本：v2.5
-更新时间：2026-02-13
-许可证：MIT
+Version: v2.4
+Last Updated: 2026-02-12
+License: MIT

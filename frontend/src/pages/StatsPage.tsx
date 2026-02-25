@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import { useLanguage } from "@/i18n"
 import { statsApi } from "@/api"
 
 interface Overview {
@@ -46,6 +48,7 @@ export default function StatsPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { t, language } = useLanguage()
   const fromTab = searchParams.get("from") || "characters"
 
   const [overview, setOverview] = useState<Overview | null>(null)
@@ -78,7 +81,7 @@ export default function StatsPage() {
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-"
-    return new Date(dateStr).toLocaleDateString("zh-CN")
+    return new Date(dateStr).toLocaleDateString(language === "zh" ? "zh-CN" : "en-US")
   }
 
   // 计算趋势图的最大值
@@ -88,7 +91,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">加载中...</div>
+        <div className="animate-pulse text-muted-foreground">{t.common.loading}</div>
       </div>
     )
   }
@@ -107,22 +110,23 @@ export default function StatsPage() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex-1">
-              <h1 className="text-xl font-semibold">写作统计</h1>
+              <h1 className="text-xl font-semibold">{t.stats.title}</h1>
               <p className="text-sm text-muted-foreground">
-                数据概览与创作分析
+                {t.stats.subtitle}
               </p>
             </div>
+            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* 概览卡片 */}
+        {/* Overview cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">总字数</CardTitle>
+              <CardTitle className="text-sm font-medium">{t.stats.totalWords}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -130,14 +134,14 @@ export default function StatsPage() {
                 {overview?.total_words.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
-                平均每章 {overview?.avg_words_per_chapter.toLocaleString()} 字
+                {t.stats.avgWordsPerChapter} {overview?.avg_words_per_chapter.toLocaleString()} {t.common.words}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">章节进度</CardTitle>
+              <CardTitle className="text-sm font-medium">{t.stats.chapterProgress}</CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -145,27 +149,27 @@ export default function StatsPage() {
                 {overview?.completed_chapters}/{overview?.total_chapters}
               </div>
               <p className="text-xs text-muted-foreground">
-                完成率 {overview?.completion_rate}%
+                {t.stats.completionRate} {overview?.completion_rate}%
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">创作天数</CardTitle>
+              <CardTitle className="text-sm font-medium">{t.stats.writingDays}</CardTitle>
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{overview?.writing_days}</div>
               <p className="text-xs text-muted-foreground">
-                共 {overview?.total_versions} 个版本
+                {t.stats.totalVersions} {overview?.total_versions} {t.common.versions}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">最近更新</CardTitle>
+              <CardTitle className="text-sm font-medium">{t.stats.lastUpdated}</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -173,26 +177,26 @@ export default function StatsPage() {
                 {formatDate(overview?.last_updated || null)}
               </div>
               <p className="text-xs text-muted-foreground">
-                开始于 {formatDate(overview?.first_created || null)}
+                {t.stats.startedAt} {formatDate(overview?.first_created || null)}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* 字数趋势 */}
+        {/* Word Trend */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
-              字数趋势（最近 30 天）
+              {t.stats.wordsTrend}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {trend.length > 0 ? (
               <div className="space-y-4">
-                {/* 累计字数图 */}
+                {/* Cumulative words chart */}
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">累计字数</p>
+                  <p className="text-sm text-muted-foreground mb-2">{t.stats.cumulativeWords}</p>
                   <div className="h-32 flex items-end gap-1">
                     {trend.map((item) => (
                       <div
@@ -206,16 +210,16 @@ export default function StatsPage() {
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
                           {item.date.slice(5)}
                           <br />
-                          {item.words.toLocaleString()} 字
+                          {item.words.toLocaleString()} {t.common.words}
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* 每日新增图 */}
+                {/* Daily new words chart */}
                 <div>
-                  <p className="text-sm text-muted-foreground mb-2">每日新增</p>
+                  <p className="text-sm text-muted-foreground mb-2">{t.stats.dailyNew}</p>
                   <div className="h-20 flex items-end gap-1">
                     {trend.map((item) => (
                       <div
@@ -238,7 +242,7 @@ export default function StatsPage() {
                         {item.daily_words > 0 && (
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
                             {item.date.slice(5)}
-                            <br />+{item.daily_words.toLocaleString()} 字
+                            <br />+{item.daily_words.toLocaleString()} {t.common.words}
                           </div>
                         )}
                       </div>
@@ -248,7 +252,7 @@ export default function StatsPage() {
               </div>
             ) : (
               <div className="h-32 flex items-center justify-center text-muted-foreground">
-                暂无数据
+                {t.common.noData}
               </div>
             )}
           </CardContent>
@@ -259,7 +263,7 @@ export default function StatsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              章节详情
+              {t.stats.chapterDetails}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -279,7 +283,7 @@ export default function StatsPage() {
                         )}
                       </div>
                       <span className="text-muted-foreground">
-                        {item.word_count.toLocaleString()} 字
+                        {item.word_count.toLocaleString()} {t.common.words}
                       </span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -297,7 +301,7 @@ export default function StatsPage() {
               </div>
             ) : (
               <div className="h-32 flex items-center justify-center text-muted-foreground">
-                暂无章节
+                {t.stats.noChapters}
               </div>
             )}
           </CardContent>

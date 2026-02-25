@@ -19,11 +19,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import { useLanguage } from "@/i18n"
 import { projectApi, importApi } from "@/api"
 import type { Project, ProjectCreate } from "@/types"
 
 export default function ProjectList() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -84,7 +87,7 @@ export default function ProjectList() {
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm("确定要删除这个项目吗？")) return
+    if (!confirm(t.projectList.deleteConfirm)) return
     try {
       await projectApi.delete(id)
       loadProjects()
@@ -111,13 +114,13 @@ export default function ProjectList() {
         }))
         setImportStep("preview")
       } else {
-        alert("解析失败: " + res.data.message)
+        alert(`${t.projectList.parseFailed}: ${res.data.message}`)
         resetImportDialog()
       }
     } catch (err: unknown) {
       console.error("Failed to preview:", err)
-      const errorMessage = err instanceof Error ? err.message : "未知错误"
-      alert("文件解析失败: " + errorMessage)
+      const errorMessage = err instanceof Error ? err.message : t.projectList.unknownError
+      alert(`${t.projectList.parseFailed}: ${errorMessage}`)
       resetImportDialog()
     } finally {
       setPreviewLoading(false)
@@ -145,13 +148,13 @@ export default function ProjectList() {
         // 导入成功后跳转到项目页面
         navigate(`/project/${res.data.project_id}`)
       } else {
-        alert("导入失败")
+        alert(t.projectList.importFailed)
         setImportStep("preview")
       }
     } catch (err: unknown) {
       console.error("Failed to import:", err)
-      const errorMessage = err instanceof Error ? err.message : "未知错误"
-      alert("导入失败: " + errorMessage)
+      const errorMessage = err instanceof Error ? err.message : t.projectList.unknownError
+      alert(`${t.projectList.importFailed}: ${errorMessage}`)
       setImportStep("preview")
     } finally {
       setImporting(false)
@@ -191,74 +194,75 @@ export default function ProjectList() {
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">我的作品</h1>
-            <p className="text-muted-foreground mt-1">管理你的小说项目</p>
+            <h1 className="text-3xl font-bold tracking-tight">{t.projectList.title}</h1>
+            <p className="text-muted-foreground mt-1">{t.projectList.subtitle}</p>
           </div>
           <div className="flex gap-2">
+            <LanguageToggle />
             <ThemeToggle />
             <Button variant="outline" size="icon" onClick={() => navigate("/settings")}>
               <Settings className="w-4 h-4" />
             </Button>
             <Button variant="outline" onClick={openImportDialog}>
               <Upload className="w-4 h-4 mr-2" />
-              导入小说
+              {t.projectList.importNovel}
             </Button>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
-                  新建项目
+                  {t.projectList.newProject}
                 </Button>
               </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>创建新项目</DialogTitle>
-                <DialogDescription>填写基本信息来创建一个新的小说项目</DialogDescription>
+                <DialogTitle>{t.projectList.createTitle}</DialogTitle>
+                <DialogDescription>{t.projectList.createDescription}</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">作品名称</Label>
+                  <Label htmlFor="name">{t.projectList.projectName}</Label>
                   <Input
                     id="name"
                     value={newProject.name}
                     onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-                    placeholder="输入作品名称"
+                    placeholder={t.projectList.projectNamePlaceholder}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="author">作者</Label>
+                  <Label htmlFor="author">{t.projectList.author}</Label>
                   <Input
                     id="author"
                     value={newProject.author}
                     onChange={(e) => setNewProject({ ...newProject, author: e.target.value })}
-                    placeholder="输入作者名"
+                    placeholder={t.projectList.authorPlaceholder}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="genre">类型</Label>
+                  <Label htmlFor="genre">{t.projectList.genre}</Label>
                   <Input
                     id="genre"
                     value={newProject.genre}
                     onChange={(e) => setNewProject({ ...newProject, genre: e.target.value })}
-                    placeholder="如：玄幻、都市、科幻"
+                    placeholder={t.projectList.genrePlaceholder}
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="description">简介</Label>
+                  <Label htmlFor="description">{t.projectList.description}</Label>
                   <Textarea
                     id="description"
                     value={newProject.description}
                     onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
-                    placeholder="简单介绍一下你的作品"
+                    placeholder={t.projectList.descriptionPlaceholder}
                     rows={3}
                   />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  取消
+                  {t.common.cancel}
                 </Button>
-                <Button onClick={handleCreate}>创建</Button>
+                <Button onClick={handleCreate}>{t.common.create}</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -283,8 +287,8 @@ export default function ProjectList() {
         ) : projects.length === 0 ? (
           <div className="text-center py-20">
             <BookOpen className="w-16 h-16 mx-auto text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-medium">还没有项目</h3>
-            <p className="text-muted-foreground mt-1">点击上方按钮创建你的第一个作品</p>
+            <h3 className="mt-4 text-lg font-medium">{t.projectList.noProjects}</h3>
+            <p className="text-muted-foreground mt-1">{t.projectList.noProjectsHint}</p>
           </div>
         ) : (
           <motion.div
@@ -319,7 +323,7 @@ export default function ProjectList() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {project.description || "暂无简介"}
+                      {project.description || t.projectList.noDescription}
                     </p>
                     <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
@@ -346,11 +350,11 @@ export default function ProjectList() {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>导入小说</DialogTitle>
+            <DialogTitle>{t.projectList.importTitle}</DialogTitle>
             <DialogDescription>
-              {importStep === "upload" && "上传小说文件，支持 TXT、Markdown、EPUB、PDF 格式"}
-              {importStep === "preview" && "确认章节分解结果，调整导入设置"}
-              {importStep === "importing" && "正在导入小说..."}
+              {importStep === "upload" && t.projectList.importUploadHint}
+              {importStep === "preview" && t.projectList.importPreviewHint}
+              {importStep === "importing" && t.projectList.importingHint}
             </DialogDescription>
           </DialogHeader>
 
@@ -371,13 +375,13 @@ export default function ProjectList() {
                 {previewLoading ? (
                   <>
                     <Loader2 className="w-12 h-12 mx-auto text-muted-foreground animate-spin" />
-                    <p className="mt-4 text-muted-foreground">正在解析文件...</p>
+                    <p className="mt-4 text-muted-foreground">{t.projectList.parsingFile}</p>
                   </>
                 ) : (
                   <>
                     <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">点击或拖拽文件到此处上传</p>
-                    <p className="text-xs text-muted-foreground mt-2">支持 TXT、Markdown、EPUB、PDF 格式</p>
+                    <p className="mt-4 text-muted-foreground">{t.projectList.uploadHint}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{t.projectList.supportedFormats}</p>
                   </>
                 )}
               </div>
@@ -389,13 +393,13 @@ export default function ProjectList() {
             <div className="grid gap-4 py-4">
               <div className="p-4 bg-muted rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span>解析结果</span>
-                  <span className="font-medium">{previewData.chapter_count} 章 / {previewData.total_words.toLocaleString()} 字</span>
+                  <span>{t.projectList.parseResult}</span>
+                  <span className="font-medium">{previewData.chapter_count} {t.common.chapters} / {previewData.total_words.toLocaleString()} {t.common.words}</span>
                 </div>
               </div>
 
               <div className="grid gap-2">
-                <Label>项目名称</Label>
+                <Label>{t.projectList.projectName}</Label>
                 <Input
                   value={importOptions.projectName}
                   onChange={(e) => setImportOptions(prev => ({ ...prev, projectName: e.target.value }))}
@@ -404,11 +408,11 @@ export default function ProjectList() {
               </div>
 
               <div className="grid gap-2">
-                <Label>小说类型</Label>
+                <Label>{t.projectList.novelType}</Label>
                 <Input
                   value={importOptions.genre}
                   onChange={(e) => setImportOptions(prev => ({ ...prev, genre: e.target.value }))}
-                  placeholder="如：玄幻、都市、科幻"
+                  placeholder={t.projectList.genrePlaceholder}
                 />
               </div>
 
@@ -420,12 +424,12 @@ export default function ProjectList() {
                 />
                 <Label htmlFor="analyze" className="flex items-center gap-2 cursor-pointer">
                   <Sparkles className="w-4 h-4" />
-                  使用 AI 分析世界观和文风设定
+                  {t.projectList.aiAnalyze}
                 </Label>
               </div>
 
               <div className="grid gap-2">
-                <Label>章节列表</Label>
+                <Label>{t.projectList.chapterList}</Label>
                 <ScrollArea className="h-48 border rounded-lg">
                   <div className="p-2 space-y-1">
                     {previewData.chapters.map((ch, idx) => (
@@ -434,7 +438,7 @@ export default function ProjectList() {
                           <span className="font-medium">{ch.chapter_name}</span>
                           {ch.title && <span className="text-muted-foreground ml-2">{ch.title}</span>}
                         </span>
-                        <span className="text-muted-foreground">{ch.word_count} 字</span>
+                        <span className="text-muted-foreground">{ch.word_count} {t.common.words}</span>
                       </div>
                     ))}
                   </div>
@@ -448,11 +452,11 @@ export default function ProjectList() {
             <div className="py-12 text-center">
               <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
               <p className="mt-4 text-muted-foreground">
-                {importOptions.analyze ? "正在导入并分析小说，这可能需要几分钟..." : "正在导入小说..."}
+                {importOptions.analyze ? t.projectList.importingWithAI : t.projectList.importingSimple}
               </p>
               {importOptions.analyze && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  AI 正在分析世界观设定、角色信息和文风特点
+                  {t.projectList.aiAnalyzeHint}
                 </p>
               )}
             </div>
@@ -461,17 +465,17 @@ export default function ProjectList() {
           <DialogFooter>
             {importStep === "upload" && (
               <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
-                取消
+                {t.common.cancel}
               </Button>
             )}
             {importStep === "preview" && (
               <>
                 <Button variant="outline" onClick={resetImportDialog}>
-                  重新选择
+                  {t.common.reselect}
                 </Button>
                 <Button onClick={handleImport} disabled={importing}>
                   <FileText className="w-4 h-4 mr-2" />
-                  开始导入
+                  {t.projectList.startImport}
                 </Button>
               </>
             )}

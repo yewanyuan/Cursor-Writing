@@ -23,20 +23,11 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import { useLanguage } from "@/i18n"
 import HighlightEditor, { type AIContentRange, type HighlightEditorRef } from "@/components/HighlightEditor"
 import { projectApi, cardApi, sessionApi, draftApi } from "@/api"
 import type { Project, CharacterCard, SessionStatus } from "@/types"
-
-const STATUS_TEXT: Record<string, string> = {
-  idle: "空闲",
-  briefing: "AI 收集素材中...",
-  writing: "AI 正在创作...",
-  reviewing: "AI 正在审阅...",
-  editing: "AI 正在修改...",
-  waiting: "等待你的反馈",
-  completed: "创作完成",
-  error: "出现错误",
-}
 
 type WriteMode = "new" | "continue" | "insert"
 
@@ -44,6 +35,22 @@ export default function WritingPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { t } = useLanguage()
+
+  // Ref for translations to use in WebSocket callback
+  const tRef = useRef(t)
+  tRef.current = t
+
+  const STATUS_TEXT: Record<string, string> = {
+    idle: t.writing.statusIdle,
+    briefing: t.writing.statusBriefing,
+    writing: t.writing.statusWriting,
+    reviewing: t.writing.statusReviewing,
+    editing: t.writing.statusEditing,
+    waiting: t.writing.statusWaiting,
+    completed: t.writing.statusCompleted,
+    error: t.writing.statusError,
+  }
 
   const [project, setProject] = useState<Project | null>(null)
   const [characters, setCharacters] = useState<CharacterCard[]>([])
@@ -57,24 +64,24 @@ export default function WritingPage() {
   const wsRef = useRef<WebSocket | null>(null)
   const editorRef = useRef<HighlightEditorRef>(null)
 
-  // AI 内容高亮范围
+  // AI content highlight range
   const [aiContentRange, setAiContentRange] = useState<AIContentRange | null>(null)
 
   // Form state
-  const [chapter, setChapter] = useState(searchParams.get("chapter") || "第一章")
+  const [chapter, setChapter] = useState(searchParams.get("chapter") || t.writing.chapterNumberPlaceholder.replace("e.g., ", "").replace("如：", ""))
   const [chapterTitle, setChapterTitle] = useState("")
   const [chapterGoal, setChapterGoal] = useState(searchParams.get("outline") || "")
   const [selectedChars, setSelectedChars] = useState<string[]>([])
   const [targetWords, setTargetWords] = useState(2000)
 
-  // 续写相关状态
+  // Continue writing state
   const [writeMode, setWriteMode] = useState<WriteMode>("new")
   const [continueInstruction, setContinueInstruction] = useState("")
   const [continueTargetWords, setContinueTargetWords] = useState(500)
   const [insertPosition, setInsertPosition] = useState<number | null>(null)
-  const skipNextDraftLoad = useRef(false)  // 跳过下一次草稿加载（续写后已更新）
-  const skipNextHighlight = useRef(false)  // 跳过下一次高亮设置（确认通过后）
-  const isRevisionMode = useRef(false)  // 是否处于修订模式（修订后不应全文高亮）
+  const skipNextDraftLoad = useRef(false)
+  const skipNextHighlight = useRef(false)
+  const isRevisionMode = useRef(false)
 
   // 自动保存相关状态
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true)  // 自动保存开关
@@ -141,7 +148,6 @@ export default function WritingPage() {
               setContent(newContent)
 
               // 只有在非修订模式且非跳过高亮时才设置全文高亮
-              // 修订模式下保持当前高亮范围（或清除高亮）
               if (!skipNextHighlight.current && !isRevisionMode.current && newContent && newContent.length > 0) {
                 setAiContentRange({
                   start: 0,
@@ -149,15 +155,17 @@ export default function WritingPage() {
                 })
               }
 
-              // 修订完成后重置修订模式标志
+              // 修订完成后清除旧的高亮范围并重置标志
+              // 因为编辑器返回的是完整修订后的全文，旧的高亮位置已不再准确
               if (isRevisionMode.current) {
+                setAiContentRange(null)
                 isRevisionMode.current = false
               }
 
               if (data.status === "completed") {
                 setMessages((prev) => [
                   ...prev,
-                  { role: "assistant", content: `创作完成！共 ${draftRes.data.word_count} 字` }
+                  { role: "assistant", content: `${tRef.current.writing.creationComplete} ${draftRes.data.word_count} ${tRef.current.common.words}` }
                 ])
               }
             } catch (err) {
@@ -297,10 +305,9 @@ export default function WritingPage() {
 
     try {
       setStatus({ status: "briefing" })
-      // 重置跳过高亮标志，因为这是新的创作
       skipNextHighlight.current = false
-      addMessage("user", `开始创作 ${chapter}: ${chapterTitle}`)
-      addMessage("assistant", "开始准备素材和背景知识...")
+      addMessage("user", `${t.writing.startCreatingChapter} ${chapter}: ${chapterTitle}`)
+      addMessage("assistant", t.writing.preparingMaterials)
 
       await sessionApi.start({
         project_id: projectId,
@@ -311,11 +318,10 @@ export default function WritingPage() {
         target_words: targetWords,
       })
 
-      // WebSocket 会自动接收状态更新，不需要轮询
     } catch (err) {
       console.error("Failed to start writing:", err)
-      setStatus({ status: "error", message: "启动失败" })
-      addMessage("assistant", "创作启动失败，请重试")
+      setStatus({ status: "error", message: t.writing.startFailed })
+      addMessage("assistant", t.writing.creationFailed)
     }
   }
 
@@ -324,23 +330,18 @@ export default function WritingPage() {
 
     try {
       if (action === "confirm") {
-        addMessage("user", "确认通过")
-        // 确认通过时清除AI内容高亮
+        addMessage("user", t.writing.confirmPass)
         setAiContentRange(null)
-        // 设置标志，防止 WebSocket 消息处理重新设置高亮
         skipNextHighlight.current = true
         isRevisionMode.current = false
       } else {
-        addMessage("user", `修改意见: ${feedback}`)
-        // 修改时需要重新加载草稿，重置跳过标志
+        addMessage("user", `${t.writing.reviseComment}: ${feedback}`)
         skipNextDraftLoad.current = false
-        // 修订模式：不要设置全文高亮，保持当前高亮范围
         isRevisionMode.current = true
       }
 
       await sessionApi.feedback(projectId, action, action === "revise" ? feedback : undefined)
       setFeedback("")
-      // WebSocket 会自动接收状态更新
     } catch (err) {
       console.error("Failed to send feedback:", err)
     }
@@ -355,8 +356,8 @@ export default function WritingPage() {
         word_count: content.length,
         status: "draft",
       })
-      setLastSavedContent(content)  // 更新已保存内容
-      addMessage("assistant", "保存成功")
+      setLastSavedContent(content)
+      addMessage("assistant", t.writing.saveSuccess)
     } catch (err) {
       console.error("Failed to save:", err)
     }
@@ -376,7 +377,6 @@ export default function WritingPage() {
     return null
   }
 
-  // 续写处理
   const handleContinueWriting = async () => {
     if (!projectId || !content || !continueInstruction) {
       console.log("Missing required fields for continue writing")
@@ -385,11 +385,10 @@ export default function WritingPage() {
 
     try {
       setStatus({ status: "writing" })
-      // 重置跳过高亮标志，因为这是新的创作
       skipNextHighlight.current = false
-      const modeText = writeMode === "continue" ? "续写" : "插入"
-      addMessage("user", `${modeText}：${continueInstruction}`)
-      addMessage("assistant", `AI 正在${modeText}...`)
+      const modeText = writeMode === "continue" ? t.writing.writingContinue : t.writing.writingInsert
+      addMessage("user", `${modeText}: ${continueInstruction}`)
+      addMessage("assistant", `${t.writing.aiWriting}${modeText}...`)
 
       const result = await sessionApi.continue({
         project_id: projectId,
@@ -401,14 +400,11 @@ export default function WritingPage() {
       })
 
       if (result.data.success) {
-        // 设置跳过标志，防止 WebSocket 覆盖内容和高亮范围
         skipNextDraftLoad.current = true
-        // 续写/插入成功后，保持当前设置的高亮范围，不让 WebSocket 覆盖
         skipNextHighlight.current = true
         const newContent = result.data.draft.content
         setContent(newContent)
 
-        // 使用后端返回的精确AI内容范围
         if (result.data.ai_content_range) {
           setAiContentRange({
             start: result.data.ai_content_range.start,
@@ -417,15 +413,15 @@ export default function WritingPage() {
         }
 
         const newLength = result.data.new_content?.length || 0
-        addMessage("assistant", `${modeText}完成，新增约 ${newLength} 字`)
+        addMessage("assistant", `${modeText}${t.writing.writeComplete} ${newLength} ${t.common.words}`)
         setStatus({ status: "waiting" })
       }
 
       setContinueInstruction("")
     } catch (err) {
       console.error("Failed to continue writing:", err)
-      setStatus({ status: "error", message: "续写失败" })
-      addMessage("assistant", "续写失败，请重试")
+      setStatus({ status: "error", message: t.writing.writeFailed })
+      addMessage("assistant", t.writing.writeFailed)
     }
   }
 
@@ -439,10 +435,9 @@ export default function WritingPage() {
   // 检查是否有未保存的内容
   const hasUnsavedChanges = content && content !== lastSavedContent
 
-  // 返回按钮处理：检查未保存内容
   const handleBack = () => {
     if (hasUnsavedChanges) {
-      const confirmed = window.confirm("有未保存的内容，确定要离开吗？")
+      const confirmed = window.confirm(t.writing.unsavedWarning)
       if (!confirmed) return
     }
     navigate(`/project/${projectId}?tab=drafts`)
@@ -473,17 +468,18 @@ export default function WritingPage() {
           </div>
           <Button variant="outline" size="sm" onClick={handleSave} disabled={!content}>
             <Save className="w-4 h-4 mr-1" />
-            保存
+            {t.common.save}
           </Button>
           <Button
             variant={autoSaveEnabled ? "default" : "outline"}
             size="sm"
             onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
-            title={autoSaveEnabled ? "关闭自动保存" : "开启自动保存"}
+            title={autoSaveEnabled ? t.writing.autoSaveOn : t.writing.autoSaveOff}
           >
             <Clock className="w-4 h-4 mr-1" />
-            {autoSaveEnabled ? "自动保存：开" : "自动保存：关"}
+            {autoSaveEnabled ? t.writing.autoSaveOn : t.writing.autoSaveOff}
           </Button>
+          <LanguageToggle />
           <ThemeToggle />
           <Button
             variant="ghost"
@@ -499,7 +495,7 @@ export default function WritingPage() {
           <HighlightEditor
             ref={editorRef}
             className="writing-editor w-full h-full min-h-[500px] border rounded-md"
-            placeholder="开始你的创作..."
+            placeholder={t.writing.editorPlaceholder}
             value={content}
             onChange={setContent}
             aiContentRange={aiContentRange}
@@ -516,22 +512,21 @@ export default function WritingPage() {
             <span>{STATUS_TEXT[status.status]}</span>
           </div>
           <div className="flex items-center gap-4">
-            {/* 自动保存状态 */}
             <div className="flex items-center gap-1 text-xs">
               {autoSaveStatus === "saving" && (
                 <>
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>自动保存中...</span>
+                  <span>{t.writing.autoSaving}</span>
                 </>
               )}
               {autoSaveStatus === "saved" && (
                 <>
                   <Clock className="w-3 h-3 text-green-500" />
-                  <span className="text-green-600">已自动保存</span>
+                  <span className="text-green-600">{t.writing.autoSaved}</span>
                 </>
               )}
             </div>
-            <span>{content.length} 字</span>
+            <span>{content.length} {t.common.words}</span>
           </div>
         </div>
       </div>
@@ -546,14 +541,13 @@ export default function WritingPage() {
             className="border-l bg-muted/30 flex flex-col"
           >
             <div className="p-4 border-b">
-              <h2 className="font-medium">AI 写作助手</h2>
+              <h2 className="font-medium">{t.writing.aiAssistant}</h2>
             </div>
 
             {/* Settings panel */}
             {status.status === "idle" && (
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
-                  {/* 模式切换 - 当已有内容时显示 */}
                   {hasContent && (
                     <div className="flex gap-2 p-1 bg-muted rounded-lg">
                       <Button
@@ -563,7 +557,7 @@ export default function WritingPage() {
                         onClick={() => setWriteMode("new")}
                       >
                         <Send className="w-3 h-3 mr-1" />
-                        新章节
+                        {t.writing.newChapter}
                       </Button>
                       <Button
                         variant={writeMode === "continue" ? "default" : "ghost"}
@@ -572,7 +566,7 @@ export default function WritingPage() {
                         onClick={() => setWriteMode("continue")}
                       >
                         <PenLine className="w-3 h-3 mr-1" />
-                        续写
+                        {t.writing.continue}
                       </Button>
                       <Button
                         variant={writeMode === "insert" ? "default" : "ghost"}
@@ -581,41 +575,40 @@ export default function WritingPage() {
                         onClick={switchToInsertMode}
                       >
                         <Plus className="w-3 h-3 mr-1" />
-                        插入
+                        {t.writing.insert}
                       </Button>
                     </div>
                   )}
 
-                  {/* 新章节模式 */}
                   {(writeMode === "new" || !hasContent) && (
                     <>
                       <div className="grid gap-2">
-                        <Label>章节编号</Label>
+                        <Label>{t.writing.chapterNumber}</Label>
                         <Input
                           value={chapter}
                           onChange={(e) => setChapter(e.target.value)}
-                          placeholder="如：第一章"
+                          placeholder={t.writing.chapterNumberPlaceholder}
                         />
                       </div>
                       <div className="grid gap-2">
-                        <Label>章节标题</Label>
+                        <Label>{t.writing.chapterTitle}</Label>
                         <Input
                           value={chapterTitle}
                           onChange={(e) => setChapterTitle(e.target.value)}
-                          placeholder="本章标题"
+                          placeholder={t.writing.chapterTitlePlaceholder}
                         />
                       </div>
                       <div className="grid gap-2">
-                        <Label>章节目标</Label>
+                        <Label>{t.writing.chapterGoal}</Label>
                         <Textarea
                           value={chapterGoal}
                           onChange={(e) => setChapterGoal(e.target.value)}
-                          placeholder="本章要达成的剧情目标"
+                          placeholder={t.writing.chapterGoalPlaceholder}
                           rows={3}
                         />
                       </div>
                       <div className="grid gap-2">
-                        <Label>目标字数</Label>
+                        <Label>{t.writing.targetWords}</Label>
                         <Input
                           type="number"
                           value={targetWords}
@@ -623,7 +616,7 @@ export default function WritingPage() {
                         />
                       </div>
                       <div className="grid gap-2">
-                        <Label>出场角色</Label>
+                        <Label>{t.writing.appearingCharacters}</Label>
                         <div className="flex flex-wrap gap-2">
                           {characters.map((char) => (
                             <Button
@@ -639,30 +632,29 @@ export default function WritingPage() {
                       </div>
                       <Button className="w-full" onClick={startWriting}>
                         <Send className="w-4 h-4 mr-2" />
-                        开始创作
+                        {t.writing.startCreating}
                       </Button>
                     </>
                   )}
 
-                  {/* 续写模式 */}
                   {writeMode === "continue" && hasContent && (
                     <>
                       <div className="p-3 bg-muted/50 rounded-lg text-sm">
                         <p className="text-muted-foreground">
-                          将在当前内容末尾续写。请描述接下来要写的内容。
+                          {t.writing.continueHint}
                         </p>
                       </div>
                       <div className="grid gap-2">
-                        <Label>续写内容描述</Label>
+                        <Label>{t.writing.continueDescription}</Label>
                         <Textarea
                           value={continueInstruction}
                           onChange={(e) => setContinueInstruction(e.target.value)}
-                          placeholder="例如：主角与反派第一次正面交锋，展示双方实力差距..."
+                          placeholder={t.writing.continuePlaceholder}
                           rows={4}
                         />
                       </div>
                       <div className="grid gap-2">
-                        <Label>目标字数</Label>
+                        <Label>{t.writing.targetWords}</Label>
                         <Input
                           type="number"
                           value={continueTargetWords}
@@ -675,23 +667,22 @@ export default function WritingPage() {
                         disabled={!continueInstruction}
                       >
                         <PenLine className="w-4 h-4 mr-2" />
-                        开始续写
+                        {t.writing.startContinue}
                       </Button>
                     </>
                   )}
 
-                  {/* 插入模式 */}
                   {writeMode === "insert" && hasContent && (
                     <>
                       <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
                         <p className="text-muted-foreground">
-                          将在光标位置插入新内容。
+                          {t.writing.insertHint}
                         </p>
                         <p className="font-medium">
-                          插入位置：第 {insertPosition ?? 0} 字处
+                          {t.writing.insertPosition} {insertPosition ?? 0} {t.writing.charPosition}
                           {insertPosition !== null && insertPosition > 0 && (
                             <span className="text-muted-foreground ml-2">
-                              （...{content.slice(Math.max(0, insertPosition - 20), insertPosition)}|）
+                              (...{content.slice(Math.max(0, insertPosition - 20), insertPosition)}|)
                             </span>
                           )}
                         </p>
@@ -700,20 +691,20 @@ export default function WritingPage() {
                           size="sm"
                           onClick={() => setInsertPosition(getCursorPosition())}
                         >
-                          更新插入位置
+                          {t.writing.updateInsertPosition}
                         </Button>
                       </div>
                       <div className="grid gap-2">
-                        <Label>插入内容描述</Label>
+                        <Label>{t.writing.insertDescription}</Label>
                         <Textarea
                           value={continueInstruction}
                           onChange={(e) => setContinueInstruction(e.target.value)}
-                          placeholder="例如：添加一段对环境的细节描写..."
+                          placeholder={t.writing.insertPlaceholder}
                           rows={4}
                         />
                       </div>
                       <div className="grid gap-2">
-                        <Label>目标字数</Label>
+                        <Label>{t.writing.targetWords}</Label>
                         <Input
                           type="number"
                           value={continueTargetWords}
@@ -726,7 +717,7 @@ export default function WritingPage() {
                         disabled={!continueInstruction || insertPosition === null}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        插入内容
+                        {t.writing.insertContent}
                       </Button>
                     </>
                   )}
@@ -757,13 +748,12 @@ export default function WritingPage() {
                   </div>
                 </ScrollArea>
 
-                {/* Feedback panel */}
                 {status.status === "waiting" && (
                   <div className="p-4 border-t space-y-3">
                     <Textarea
                       value={feedback}
                       onChange={(e) => setFeedback(e.target.value)}
-                      placeholder="输入修改意见..."
+                      placeholder={t.writing.feedbackPlaceholder}
                       rows={2}
                     />
                     <div className="flex gap-2">
@@ -773,11 +763,11 @@ export default function WritingPage() {
                         onClick={() => handleFeedback("revise")}
                       >
                         <RefreshCw className="w-4 h-4 mr-1" />
-                        修改
+                        {t.writing.revise}
                       </Button>
                       <Button className="flex-1" onClick={() => handleFeedback("confirm")}>
                         <CheckCircle className="w-4 h-4 mr-1" />
-                        通过
+                        {t.writing.pass}
                       </Button>
                     </div>
                     <Button
@@ -790,12 +780,11 @@ export default function WritingPage() {
                         setFeedback("")
                       }}
                     >
-                      继续创作
+                      {t.writing.continueCreating}
                     </Button>
                   </div>
                 )}
 
-                {/* Restart button */}
                 {(status.status === "completed" || status.status === "error") && (
                   <div className="p-4 border-t">
                     <Button
@@ -808,7 +797,7 @@ export default function WritingPage() {
                         setFeedback("")
                       }}
                     >
-                      继续创作
+                      {t.writing.continueCreating}
                     </Button>
                   </div>
                 )}

@@ -27,6 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import { useLanguage } from "@/i18n"
 import { projectApi, cardApi, draftApi, canonApi, exportApi } from "@/api"
 import type { Project, CharacterCard, WorldCard, StyleCard, RulesCard, Draft, Fact, TimelineEvent, CharacterState } from "@/types"
 
@@ -34,6 +36,7 @@ export default function ProjectWorkspace() {
   const { projectId } = useParams<{ projectId: string }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [project, setProject] = useState<Project | null>(null)
   const [characters, setCharacters] = useState<CharacterCard[]>([])
   const [worlds, setWorlds] = useState<WorldCard[]>([])
@@ -235,7 +238,7 @@ export default function ProjectWorkspace() {
 
   const handleDeleteChar = async (name: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!projectId || !confirm(`确定删除角色 "${name}"？`)) return
+    if (!projectId || !confirm(`${t.workspace.deleteCharConfirm} "${name}"?`)) return
     try {
       await cardApi.deleteCharacter(projectId, name)
       loadData()
@@ -273,7 +276,7 @@ export default function ProjectWorkspace() {
 
   const handleDeleteWorld = async (name: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!projectId || !confirm(`确定删除设定 "${name}"？`)) return
+    if (!projectId || !confirm(`${t.workspace.deleteSettingConfirm} "${name}"?`)) return
     try {
       await cardApi.deleteWorld(projectId, name)
       loadData()
@@ -287,7 +290,7 @@ export default function ProjectWorkspace() {
     if (!projectId) return
     try {
       await cardApi.saveStyle(projectId, style)
-      alert("文风设置已保存")
+      alert(t.workspace.styleSaved)
     } catch (err) {
       console.error("Failed to save style:", err)
     }
@@ -298,7 +301,7 @@ export default function ProjectWorkspace() {
     if (!projectId) return
     try {
       await cardApi.saveRules(projectId, rules)
-      alert("规则设置已保存")
+      alert(t.workspace.rulesSaved)
     } catch (err) {
       console.error("Failed to save rules:", err)
     }
@@ -333,7 +336,7 @@ export default function ProjectWorkspace() {
   }
 
   const handleDeleteFact = async (factId: string) => {
-    if (!projectId || !confirm("确定删除此事实？")) return
+    if (!projectId || !confirm(t.workspace.deleteFactConfirm)) return
     try {
       await canonApi.deleteFact(projectId, factId)
       loadData()
@@ -370,7 +373,7 @@ export default function ProjectWorkspace() {
   }
 
   const handleDeleteTimelineEvent = async (eventId: string) => {
-    if (!projectId || !confirm("确定删除此事件？")) return
+    if (!projectId || !confirm(t.workspace.deleteEventConfirm)) return
     try {
       await canonApi.deleteTimelineEvent(projectId, eventId)
       loadData()
@@ -416,7 +419,7 @@ export default function ProjectWorkspace() {
   }
 
   const handleDeleteState = async (character: string, chapter: string) => {
-    if (!projectId || !confirm(`确定删除 ${character} 在 ${chapter} 的状态？`)) return
+    if (!projectId || !confirm(`${t.workspace.deleteStateConfirm} ${character} ${t.workspace.stateAt}`)) return
     try {
       await canonApi.deleteCharacterState(projectId, character, chapter)
       loadData()
@@ -444,12 +447,12 @@ export default function ProjectWorkspace() {
         setExtractDialogOpen(false)
         loadData()  // 刷新数据
       } else {
-        alert("提取失败：" + res.data.message)
+        alert(`${t.common.error}: ` + res.data.message)
       }
     } catch (err: unknown) {
       console.error("Failed to extract:", err)
-      const errorMessage = err instanceof Error ? err.message : "未知错误"
-      alert("AI 提取失败：" + errorMessage)
+      const errorMessage = err instanceof Error ? err.message : t.projectList.unknownError
+      alert(`${t.common.error}: ` + errorMessage)
     } finally {
       setExtracting(false)
     }
@@ -519,7 +522,7 @@ export default function ProjectWorkspace() {
 
   const handleBatchDeleteFacts = async () => {
     if (!projectId || selectedFactIds.size === 0) return
-    if (!confirm(`确定删除选中的 ${selectedFactIds.size} 条事实？`)) return
+    if (!confirm(`${t.common.batchDelete} ${selectedFactIds.size} ${t.common.items}?`)) return
     setBatchDeleting(true)
     try {
       const res = await canonApi.batchDeleteFacts(projectId, Array.from(selectedFactIds))
@@ -530,7 +533,7 @@ export default function ProjectWorkspace() {
       }
     } catch (err) {
       console.error("Failed to batch delete facts:", err)
-      alert("批量删除失败")
+      alert(t.common.error)
     } finally {
       setBatchDeleting(false)
     }
@@ -538,7 +541,7 @@ export default function ProjectWorkspace() {
 
   const handleBatchDeleteTimeline = async () => {
     if (!projectId || selectedTimelineIds.size === 0) return
-    if (!confirm(`确定删除选中的 ${selectedTimelineIds.size} 条时间线事件？`)) return
+    if (!confirm(`${t.common.batchDelete} ${selectedTimelineIds.size} ${t.common.items}?`)) return
     setBatchDeleting(true)
     try {
       const res = await canonApi.batchDeleteTimeline(projectId, Array.from(selectedTimelineIds))
@@ -549,7 +552,7 @@ export default function ProjectWorkspace() {
       }
     } catch (err) {
       console.error("Failed to batch delete timeline:", err)
-      alert("批量删除失败")
+      alert(t.common.error)
     } finally {
       setBatchDeleting(false)
     }
@@ -557,7 +560,7 @@ export default function ProjectWorkspace() {
 
   const handleBatchDeleteStates = async () => {
     if (!projectId || selectedStateKeys.size === 0) return
-    if (!confirm(`确定删除选中的 ${selectedStateKeys.size} 条角色状态？`)) return
+    if (!confirm(`${t.common.batchDelete} ${selectedStateKeys.size} ${t.common.items}?`)) return
     setBatchDeleting(true)
     try {
       const keys = Array.from(selectedStateKeys).map(key => {
@@ -572,7 +575,7 @@ export default function ProjectWorkspace() {
       }
     } catch (err) {
       console.error("Failed to batch delete states:", err)
-      alert("批量删除失败")
+      alert(t.common.error)
     } finally {
       setBatchDeleting(false)
     }
@@ -583,7 +586,7 @@ export default function ProjectWorkspace() {
     // 自动生成下一章的标题
     const nextChapterNum = drafts.length + 1
     setChapterForm({
-      title: `第${nextChapterNum}章`,
+      title: t.workspace.defaultChapterTitle.replace("{n}", String(nextChapterNum)),
       outline: "",
     })
     setChapterDialogOpen(true)
@@ -622,7 +625,7 @@ export default function ProjectWorkspace() {
       if (response.data instanceof Blob && response.data.type === "application/json") {
         const text = await response.data.text()
         const error = JSON.parse(text)
-        throw new Error(error.detail || "导出失败")
+        throw new Error(error.detail || t.common.error)
       }
 
       // 创建下载链接
@@ -645,7 +648,7 @@ export default function ProjectWorkspace() {
       setExportDialogOpen(false)
     } catch (err: any) {
       console.error("Failed to export:", err)
-      const message = err?.response?.data?.detail || err?.message || "导出失败，请重试"
+      const message = err?.response?.data?.detail || err?.message || t.common.error
       alert(message)
     } finally {
       setExporting(false)
@@ -655,7 +658,7 @@ export default function ProjectWorkspace() {
   if (!project) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">加载中...</div>
+        <div className="animate-pulse text-muted-foreground">{t.common.loading}</div>
       </div>
     )
   }
@@ -673,18 +676,19 @@ export default function ProjectWorkspace() {
                 <h1 className="text-xl font-semibold">{project.name}</h1>
                 <p className="text-sm text-muted-foreground">{project.genre}</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={openEditProjectDialog} title="编辑项目信息">
+              <Button variant="ghost" size="icon" onClick={openEditProjectDialog} title={t.workspace.editProjectTitle}>
                 <Edit className="w-4 h-4" />
               </Button>
             </div>
             <Button variant="outline" onClick={() => navigate(`/stats/${projectId}?from=${activeTab}`)}>
               <BarChart3 className="w-4 h-4 mr-2" />
-              统计
+              {t.workspace.statistics}
             </Button>
             <Button onClick={() => navigate(`/write/${projectId}`)}>
               <Pen className="w-4 h-4 mr-2" />
-              开始写作
+              {t.workspace.startWriting}
             </Button>
+            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>
@@ -695,37 +699,37 @@ export default function ProjectWorkspace() {
           <TabsList>
             <TabsTrigger value="characters" className="gap-2">
               <User className="w-4 h-4" />
-              角色
+              {t.workspace.characters}
             </TabsTrigger>
             <TabsTrigger value="world" className="gap-2">
               <Globe className="w-4 h-4" />
-              世界观
+              {t.workspace.world}
             </TabsTrigger>
             <TabsTrigger value="style" className="gap-2">
               <BookOpen className="w-4 h-4" />
-              文风
+              {t.workspace.style}
             </TabsTrigger>
             <TabsTrigger value="rules" className="gap-2">
               <Shield className="w-4 h-4" />
-              规则
+              {t.workspace.rules}
             </TabsTrigger>
             <TabsTrigger value="canon" className="gap-2">
               <Database className="w-4 h-4" />
-              事实表
+              {t.workspace.canon}
             </TabsTrigger>
             <TabsTrigger value="drafts" className="gap-2">
               <FileText className="w-4 h-4" />
-              章节
+              {t.workspace.drafts}
             </TabsTrigger>
           </TabsList>
 
           {/* 角色 Tab */}
           <TabsContent value="characters" className="mt-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">角色设定</h2>
+              <h2 className="text-lg font-medium">{t.workspace.characterSettings}</h2>
               <Button size="sm" onClick={openNewCharDialog}>
                 <Plus className="w-4 h-4 mr-1" />
-                添加角色
+                {t.workspace.addCharacter}
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -754,7 +758,7 @@ export default function ProjectWorkspace() {
                       <p className="text-sm text-muted-foreground">{char.identity}</p>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm line-clamp-3">{char.background || "暂无背景介绍"}</p>
+                      <p className="text-sm line-clamp-3">{char.background || t.workspace.noBackground}</p>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -765,10 +769,10 @@ export default function ProjectWorkspace() {
           {/* 世界观 Tab */}
           <TabsContent value="world" className="mt-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">世界观设定</h2>
+              <h2 className="text-lg font-medium">{t.workspace.worldSettings}</h2>
               <Button size="sm" onClick={openNewWorldDialog}>
                 <Plus className="w-4 h-4 mr-1" />
-                添加设定
+                {t.workspace.addSetting}
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -810,10 +814,10 @@ export default function ProjectWorkspace() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-medium">文风设定</h2>
-                  <p className="text-sm text-muted-foreground">定义你的写作风格，AI 会参照这些设定进行创作</p>
+                  <h2 className="text-lg font-medium">{t.workspace.styleSettings}</h2>
+                  <p className="text-sm text-muted-foreground">{t.workspace.styleDescription}</p>
                 </div>
-                <Button onClick={handleSaveStyle}>保存文风设置</Button>
+                <Button onClick={handleSaveStyle}>{t.workspace.saveStyleSettings}</Button>
               </div>
 
               {/* 基础设定卡片 */}
@@ -822,15 +826,15 @@ export default function ProjectWorkspace() {
                   <CardHeader className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                      叙事距离
+                      {t.workspace.narrativeDistance}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="flex flex-col gap-2">
                       {[
-                        { value: "close", label: "近距离", desc: "第一人称/深度内心" },
-                        { value: "medium", label: "中距离", desc: "有限第三人称" },
-                        { value: "far", label: "远距离", desc: "全知视角" },
+                        { value: "close", label: t.workspace.close, desc: t.workspace.closeDesc },
+                        { value: "medium", label: t.workspace.medium, desc: t.workspace.mediumDesc },
+                        { value: "far", label: t.workspace.far, desc: t.workspace.farDesc },
                       ].map((option) => (
                         <label
                           key={option.value}
@@ -869,15 +873,15 @@ export default function ProjectWorkspace() {
                   <CardHeader className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                      叙事节奏
+                      {t.workspace.pacing}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-4">
                     <div className="flex flex-col gap-2">
                       {[
-                        { value: "fast", label: "快节奏", desc: "动作密集、紧张刺激" },
-                        { value: "moderate", label: "中等节奏", desc: "平衡叙事、张弛有度" },
-                        { value: "slow", label: "慢节奏", desc: "细腻描写、意境悠远" },
+                        { value: "fast", label: t.workspace.fast, desc: t.workspace.fastDesc },
+                        { value: "moderate", label: t.workspace.moderate, desc: t.workspace.moderateDesc },
+                        { value: "slow", label: t.workspace.slow, desc: t.workspace.slowDesc },
                       ].map((option) => (
                         <label
                           key={option.value}
@@ -918,14 +922,14 @@ export default function ProjectWorkspace() {
                 <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    句式偏好
+                    {t.workspace.sentenceStyle}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
                   <Textarea
                     value={style.sentence_style}
                     onChange={(e) => setStyle({ ...style, sentence_style: e.target.value })}
-                    placeholder="描述你偏好的句式风格，如：短句为主、多用比喻、少用被动语态、善用留白..."
+                    placeholder={t.workspace.sentenceStylePlaceholder}
                     rows={2}
                     className="resize-none"
                   />
@@ -938,9 +942,9 @@ export default function ProjectWorkspace() {
                   <CardHeader className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                      常用词汇
+                      {t.workspace.vocabulary}
                       <span className="text-xs font-normal text-muted-foreground ml-auto">
-                        {style.vocabulary.length} 个
+                        {style.vocabulary.length} {t.workspace.itemCount}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -948,11 +952,11 @@ export default function ProjectWorkspace() {
                     <TagInput
                       value={style.vocabulary}
                       onChange={(v) => setStyle({ ...style, vocabulary: v })}
-                      placeholder="输入词汇后按回车添加"
+                      placeholder={t.workspace.vocabularyPlaceholder}
                       tagClassName="bg-green-500/10 text-green-700 border-green-500/20 hover:bg-green-500/20"
                     />
                     <p className="text-xs text-muted-foreground mt-2">
-                      希望 AI 多使用的词汇，输入后按回车添加
+                      {t.workspace.vocabularyHint}
                     </p>
                   </CardContent>
                 </Card>
@@ -961,9 +965,9 @@ export default function ProjectWorkspace() {
                   <CardHeader className="bg-gradient-to-r from-red-500/10 to-rose-500/10 pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                      禁用词汇
+                      {t.workspace.tabooWords}
                       <span className="text-xs font-normal text-muted-foreground ml-auto">
-                        {style.taboo_words.length} 个
+                        {style.taboo_words.length} {t.workspace.itemCount}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -971,11 +975,11 @@ export default function ProjectWorkspace() {
                     <TagInput
                       value={style.taboo_words}
                       onChange={(v) => setStyle({ ...style, taboo_words: v })}
-                      placeholder="输入词汇后按回车添加"
+                      placeholder={t.workspace.tabooWordsPlaceholder}
                       tagClassName="bg-red-500/10 text-red-700 border-red-500/20 hover:bg-red-500/20"
                     />
                     <p className="text-xs text-muted-foreground mt-2">
-                      禁止 AI 使用的词汇，输入后按回车添加
+                      {t.workspace.tabooWordsHint}
                     </p>
                   </CardContent>
                 </Card>
@@ -986,9 +990,9 @@ export default function ProjectWorkspace() {
                 <CardHeader className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                    范文片段
+                    {t.workspace.examplePassages}
                     <span className="text-xs font-normal text-muted-foreground ml-auto">
-                      {style.example_passages.length} 段
+                      {style.example_passages.length} {t.workspace.passageCount}
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -996,12 +1000,12 @@ export default function ProjectWorkspace() {
                   <Textarea
                     value={style.example_passages.join("\n\n")}
                     onChange={(e) => setStyle({ ...style, example_passages: e.target.value.split("\n\n").filter(Boolean) })}
-                    placeholder="粘贴你喜欢的文风示例，AI 会参考模仿&#10;&#10;每段用空行分隔"
+                    placeholder={t.workspace.examplePassagesPlaceholder}
                     rows={6}
                     className="resize-none"
                   />
                   <p className="text-xs text-muted-foreground mt-2">
-                    提示：可以粘贴多段你喜欢的写作风格示例，每段之间用空行分隔
+                    {t.workspace.examplePassagesHint}
                   </p>
                 </CardContent>
               </Card>
@@ -1013,10 +1017,10 @@ export default function ProjectWorkspace() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-medium">写作规则</h2>
-                  <p className="text-sm text-muted-foreground">设定创作边界，确保 AI 输出符合你的预期</p>
+                  <h2 className="text-lg font-medium">{t.workspace.writingRules}</h2>
+                  <p className="text-sm text-muted-foreground">{t.workspace.rulesDescription}</p>
                 </div>
-                <Button onClick={handleSaveRules}>保存规则设置</Button>
+                <Button onClick={handleSaveRules}>{t.workspace.saveRulesSettings}</Button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -1030,11 +1034,11 @@ export default function ProjectWorkspace() {
                         </svg>
                       </div>
                       <div>
-                        <div>必须遵守</div>
-                        <div className="text-xs font-normal text-muted-foreground">DO's</div>
+                        <div>{t.workspace.dos}</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t.workspace.dosLabel}</div>
                       </div>
                       <span className="text-xs font-normal text-muted-foreground ml-auto bg-green-500/10 px-2 py-0.5 rounded-full">
-                        {rules.dos.length} 条
+                        {rules.dos.length} {t.workspace.rulesCount}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -1042,8 +1046,8 @@ export default function ProjectWorkspace() {
                     <ListInput
                       value={rules.dos}
                       onChange={(v) => setRules({ ...rules, dos: v })}
-                      placeholder="输入规则，如：每章必须有冲突"
-                      addButtonText="添加"
+                      placeholder={t.workspace.dosPlaceholder}
+                      addButtonText={t.common.add}
                     />
                   </CardContent>
                 </Card>
@@ -1058,11 +1062,11 @@ export default function ProjectWorkspace() {
                         </svg>
                       </div>
                       <div>
-                        <div>禁止事项</div>
-                        <div className="text-xs font-normal text-muted-foreground">DON'Ts</div>
+                        <div>{t.workspace.donts}</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t.workspace.dontsLabel}</div>
                       </div>
                       <span className="text-xs font-normal text-muted-foreground ml-auto bg-red-500/10 px-2 py-0.5 rounded-full">
-                        {rules.donts.length} 条
+                        {rules.donts.length} {t.workspace.rulesCount}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -1070,8 +1074,8 @@ export default function ProjectWorkspace() {
                     <ListInput
                       value={rules.donts}
                       onChange={(v) => setRules({ ...rules, donts: v })}
-                      placeholder="输入规则，如：不许写死主角"
-                      addButtonText="添加"
+                      placeholder={t.workspace.dontsPlaceholder}
+                      addButtonText={t.common.add}
                     />
                   </CardContent>
                 </Card>
@@ -1086,11 +1090,11 @@ export default function ProjectWorkspace() {
                         </svg>
                       </div>
                       <div>
-                        <div>质量标准</div>
-                        <div className="text-xs font-normal text-muted-foreground">STANDARDS</div>
+                        <div>{t.workspace.qualityStandards}</div>
+                        <div className="text-xs font-normal text-muted-foreground">{t.workspace.qualityStandardsLabel}</div>
                       </div>
                       <span className="text-xs font-normal text-muted-foreground ml-auto bg-amber-500/10 px-2 py-0.5 rounded-full">
-                        {rules.quality_standards.length} 条
+                        {rules.quality_standards.length} {t.workspace.rulesCount}
                       </span>
                     </CardTitle>
                   </CardHeader>
@@ -1098,8 +1102,8 @@ export default function ProjectWorkspace() {
                     <ListInput
                       value={rules.quality_standards}
                       onChange={(v) => setRules({ ...rules, quality_standards: v })}
-                      placeholder="输入标准，如：对话占比不超过50%"
-                      addButtonText="添加"
+                      placeholder={t.workspace.standardsPlaceholder}
+                      addButtonText={t.common.add}
                     />
                   </CardContent>
                 </Card>
@@ -1113,11 +1117,11 @@ export default function ProjectWorkspace() {
                       <BookOpen className="w-5 h-5 text-primary" />
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      <p className="font-medium text-foreground mb-1">小贴士</p>
+                      <p className="font-medium text-foreground mb-1">{t.workspace.rulesTips}</p>
                       <ul className="space-y-1">
-                        <li>• <strong>必须遵守</strong>：AI 会尽力在每次创作中体现这些要求</li>
-                        <li>• <strong>禁止事项</strong>：AI 会避免触碰这些红线，审稿人也会检查</li>
-                        <li>• <strong>质量标准</strong>：用于评估草稿质量，不达标会触发重写</li>
+                        <li>• <strong>{t.workspace.dos}</strong>: {t.workspace.dosTip}</li>
+                        <li>• <strong>{t.workspace.donts}</strong>: {t.workspace.dontsTip}</li>
+                        <li>• <strong>{t.workspace.qualityStandards}</strong>: {t.workspace.standardsTip}</li>
                       </ul>
                     </div>
                   </div>
@@ -1130,8 +1134,8 @@ export default function ProjectWorkspace() {
           <TabsContent value="canon" className="mt-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-medium">事实表</h2>
-                <p className="text-sm text-muted-foreground">记录故事中已发生的事实，保持一致性</p>
+                <h2 className="text-lg font-medium">{t.workspace.canonTitle}</h2>
+                <p className="text-sm text-muted-foreground">{t.workspace.canonDescription}</p>
               </div>
 
               {/* 子标签页 */}
@@ -1142,7 +1146,7 @@ export default function ProjectWorkspace() {
                   onClick={() => setCanonSubTab("facts")}
                 >
                   <Database className="w-4 h-4 mr-1" />
-                  事实 ({facts.length})
+                  {t.workspace.facts} ({facts.length})
                 </Button>
                 <Button
                   variant={canonSubTab === "timeline" ? "default" : "ghost"}
@@ -1150,7 +1154,7 @@ export default function ProjectWorkspace() {
                   onClick={() => setCanonSubTab("timeline")}
                 >
                   <Clock className="w-4 h-4 mr-1" />
-                  时间线 ({timeline.length})
+                  {t.workspace.timeline} ({timeline.length})
                 </Button>
                 <Button
                   variant={canonSubTab === "states" ? "default" : "ghost"}
@@ -1158,7 +1162,7 @@ export default function ProjectWorkspace() {
                   onClick={() => setCanonSubTab("states")}
                 >
                   <Activity className="w-4 h-4 mr-1" />
-                  角色状态 ({characterStates.length})
+                  {t.workspace.characterStates} ({characterStates.length})
                 </Button>
               </div>
 
@@ -1174,7 +1178,7 @@ export default function ProjectWorkspace() {
                             onCheckedChange={selectAllFacts}
                           />
                           <span className="text-sm text-muted-foreground">
-                            {selectedFactIds.size > 0 ? `已选 ${selectedFactIds.size} 项` : "全选"}
+                            {selectedFactIds.size > 0 ? `${t.common.selected} ${selectedFactIds.size} ${t.common.items}` : t.common.selectAll}
                           </span>
                           {selectedFactIds.size > 0 && (
                             <Button
@@ -1188,7 +1192,7 @@ export default function ProjectWorkspace() {
                               ) : (
                                 <Trash2 className="w-4 h-4 mr-1" />
                               )}
-                              批量删除
+                              {t.common.batchDelete}
                             </Button>
                           )}
                         </>
@@ -1197,11 +1201,11 @@ export default function ProjectWorkspace() {
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={openExtractDialog} disabled={drafts.length === 0}>
                         <Sparkles className="w-4 h-4 mr-1" />
-                        自动提取
+                        {t.workspace.autoExtract}
                       </Button>
                       <Button size="sm" onClick={openNewFactDialog}>
                         <Plus className="w-4 h-4 mr-1" />
-                        添加事实
+                        {t.workspace.addFact}
                       </Button>
                     </div>
                   </div>
@@ -1209,7 +1213,7 @@ export default function ProjectWorkspace() {
                     <div className="space-y-2">
                       {facts.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
-                          暂无事实记录
+                          {t.workspace.noFacts}
                         </div>
                       ) : (
                         facts.map((fact) => (
@@ -1224,8 +1228,8 @@ export default function ProjectWorkspace() {
                               <div className="flex-1 cursor-pointer" onClick={() => openEditFactDialog(fact)}>
                                 <p className="text-sm">{fact.statement}</p>
                                 <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
-                                  {fact.source && <span>来源: {fact.source}</span>}
-                                  <span>置信度: {(fact.confidence * 100).toFixed(0)}%</span>
+                                  {fact.source && <span>{t.workspace.source}: {fact.source}</span>}
+                                  <span>{t.workspace.confidence}: {(fact.confidence * 100).toFixed(0)}%</span>
                                 </div>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100">
@@ -1267,7 +1271,7 @@ export default function ProjectWorkspace() {
                             onCheckedChange={selectAllTimeline}
                           />
                           <span className="text-sm text-muted-foreground">
-                            {selectedTimelineIds.size > 0 ? `已选 ${selectedTimelineIds.size} 项` : "全选"}
+                            {selectedTimelineIds.size > 0 ? `${t.common.selected} ${selectedTimelineIds.size} ${t.common.items}` : t.common.selectAll}
                           </span>
                           {selectedTimelineIds.size > 0 && (
                             <Button
@@ -1281,7 +1285,7 @@ export default function ProjectWorkspace() {
                               ) : (
                                 <Trash2 className="w-4 h-4 mr-1" />
                               )}
-                              批量删除
+                              {t.common.batchDelete}
                             </Button>
                           )}
                         </>
@@ -1290,11 +1294,11 @@ export default function ProjectWorkspace() {
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={openExtractDialog} disabled={drafts.length === 0}>
                         <Sparkles className="w-4 h-4 mr-1" />
-                        自动提取
+                        {t.workspace.autoExtract}
                       </Button>
                       <Button size="sm" onClick={openNewTimelineDialog}>
                         <Plus className="w-4 h-4 mr-1" />
-                        添加事件
+                        {t.workspace.addEvent}
                       </Button>
                     </div>
                   </div>
@@ -1302,7 +1306,7 @@ export default function ProjectWorkspace() {
                     <div className="space-y-2">
                       {timeline.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
-                          暂无时间线事件
+                          {t.workspace.noTimeline}
                         </div>
                       ) : (
                         timeline.map((event) => (
@@ -1367,7 +1371,7 @@ export default function ProjectWorkspace() {
                             onCheckedChange={selectAllStates}
                           />
                           <span className="text-sm text-muted-foreground">
-                            {selectedStateKeys.size > 0 ? `已选 ${selectedStateKeys.size} 项` : "全选"}
+                            {selectedStateKeys.size > 0 ? `${t.common.selected} ${selectedStateKeys.size} ${t.common.items}` : t.common.selectAll}
                           </span>
                           {selectedStateKeys.size > 0 && (
                             <Button
@@ -1381,7 +1385,7 @@ export default function ProjectWorkspace() {
                               ) : (
                                 <Trash2 className="w-4 h-4 mr-1" />
                               )}
-                              批量删除
+                              {t.common.batchDelete}
                             </Button>
                           )}
                         </>
@@ -1390,11 +1394,11 @@ export default function ProjectWorkspace() {
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={openExtractDialog} disabled={drafts.length === 0}>
                         <Sparkles className="w-4 h-4 mr-1" />
-                        自动提取
+                        {t.workspace.autoExtract}
                       </Button>
                       <Button size="sm" onClick={openNewStateDialog}>
                         <Plus className="w-4 h-4 mr-1" />
-                        添加状态
+                        {t.workspace.addState}
                       </Button>
                     </div>
                   </div>
@@ -1402,7 +1406,7 @@ export default function ProjectWorkspace() {
                     <div className="space-y-2">
                       {characterStates.length === 0 ? (
                         <div className="text-center py-10 text-muted-foreground">
-                          暂无角色状态记录
+                          {t.workspace.noStates}
                         </div>
                       ) : (
                         characterStates.map((state, idx) => (
@@ -1419,7 +1423,7 @@ export default function ProjectWorkspace() {
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium">{state.character}</span>
-                                      <span className="text-xs text-muted-foreground">截止 {state.chapter}</span>
+                                      <span className="text-xs text-muted-foreground">{t.workspace.asOf} {state.chapter}</span>
                                     </div>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100">
                                       <Button
@@ -1441,14 +1445,14 @@ export default function ProjectWorkspace() {
                                     </div>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                                    {state.location && <div><span className="text-muted-foreground">位置:</span> {state.location}</div>}
-                                    {state.emotional_state && <div><span className="text-muted-foreground">情绪:</span> {state.emotional_state}</div>}
-                                    {state.goals.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">目标:</span> {state.goals.join(", ")}</div>}
-                                    {state.injuries.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">伤势:</span> {state.injuries.join(", ")}</div>}
-                                    {state.inventory && state.inventory.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">持有物品:</span> {state.inventory.join(", ")}</div>}
+                                    {state.location && <div><span className="text-muted-foreground">{t.workspace.locationLabel}:</span> {state.location}</div>}
+                                    {state.emotional_state && <div><span className="text-muted-foreground">{t.workspace.emotionLabel}:</span> {state.emotional_state}</div>}
+                                    {state.goals.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">{t.workspace.goalsLabel}:</span> {state.goals.join(", ")}</div>}
+                                    {state.injuries.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">{t.workspace.injuriesLabel}:</span> {state.injuries.join(", ")}</div>}
+                                    {state.inventory && state.inventory.length > 0 && <div className="col-span-2"><span className="text-muted-foreground">{t.workspace.inventoryLabel}:</span> {state.inventory.join(", ")}</div>}
                                     {state.relationships && Object.keys(state.relationships).length > 0 && (
                                       <div className="col-span-2">
-                                        <span className="text-muted-foreground">人物关系:</span>{" "}
+                                        <span className="text-muted-foreground">{t.workspace.relationshipsLabel}:</span>{" "}
                                         {Object.entries(state.relationships).map(([name, rel]) => `${name}(${rel})`).join(", ")}
                                       </div>
                                     )}
@@ -1469,15 +1473,15 @@ export default function ProjectWorkspace() {
           {/* 章节 Tab */}
           <TabsContent value="drafts" className="mt-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-medium">章节列表</h2>
+              <h2 className="text-lg font-medium">{t.workspace.chapterList}</h2>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={openExportDialog}>
                   <Download className="w-4 h-4 mr-1" />
-                  导出小说
+                  {t.workspace.exportNovel}
                 </Button>
                 <Button size="sm" onClick={openNewChapterDialog}>
                   <Plus className="w-4 h-4 mr-1" />
-                  添加章节
+                  {t.workspace.addChapter}
                 </Button>
               </div>
             </div>
@@ -1485,7 +1489,7 @@ export default function ProjectWorkspace() {
               <div className="space-y-2">
                 {drafts.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
-                    暂无章节，点击上方"添加章节"开始创作
+                    {t.workspace.noChapters}
                   </div>
                 ) : (
                   drafts.map((draft) => (
@@ -1498,7 +1502,7 @@ export default function ProjectWorkspace() {
                         <div>
                           <p className="font-medium">{draft.chapter}</p>
                           <p className="text-sm text-muted-foreground">
-                            {draft.word_count} 字 · 版本 {draft.version}
+                            {draft.word_count} {t.common.words} · {t.workspace.version} {draft.version}
                           </p>
                         </div>
                         <span
@@ -1510,7 +1514,7 @@ export default function ProjectWorkspace() {
                               : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {draft.status === "final" ? "定稿" : draft.status === "reviewed" ? "已审" : "草稿"}
+                          {draft.status === "final" ? t.workspace.final : draft.status === "reviewed" ? t.workspace.reviewed : t.workspace.draft}
                         </span>
                       </CardContent>
                     </Card>
@@ -1526,48 +1530,48 @@ export default function ProjectWorkspace() {
       <Dialog open={charDialogOpen} onOpenChange={setCharDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCharName ? "编辑角色" : "添加角色"}</DialogTitle>
+            <DialogTitle>{editingCharName ? t.workspace.editCharacter : t.workspace.addCharacter}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>名称</Label>
+              <Label>{t.workspace.characterName}</Label>
               <Input
                 value={charForm.name}
                 onChange={(e) => setCharForm({ ...charForm, name: e.target.value })}
-                placeholder="角色名称"
+                placeholder={t.workspace.characterNamePlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>身份</Label>
+              <Label>{t.workspace.identity}</Label>
               <Input
                 value={charForm.identity}
                 onChange={(e) => setCharForm({ ...charForm, identity: e.target.value })}
-                placeholder="如：主角、反派"
+                placeholder={t.workspace.identityPlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>语言风格</Label>
+              <Label>{t.workspace.speechPattern}</Label>
               <Input
                 value={charForm.speech_pattern}
                 onChange={(e) => setCharForm({ ...charForm, speech_pattern: e.target.value })}
-                placeholder="角色的说话方式"
+                placeholder={t.workspace.speechPatternPlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>背景</Label>
+              <Label>{t.workspace.background}</Label>
               <Textarea
                 value={charForm.background}
                 onChange={(e) => setCharForm({ ...charForm, background: e.target.value })}
-                placeholder="角色的背景故事"
+                placeholder={t.workspace.backgroundPlaceholder}
                 rows={3}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCharDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveCharacter}>保存</Button>
+            <Button onClick={handleSaveCharacter}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1576,40 +1580,40 @@ export default function ProjectWorkspace() {
       <Dialog open={worldDialogOpen} onOpenChange={setWorldDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingWorldName ? "编辑世界观设定" : "添加世界观设定"}</DialogTitle>
+            <DialogTitle>{editingWorldName ? t.workspace.editSetting : t.workspace.addWorldSetting}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>名称</Label>
+              <Label>{t.workspace.settingName}</Label>
               <Input
                 value={worldForm.name}
                 onChange={(e) => setWorldForm({ ...worldForm, name: e.target.value })}
-                placeholder="设定名称"
+                placeholder={t.workspace.settingNamePlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>分类</Label>
+              <Label>{t.workspace.category}</Label>
               <Input
                 value={worldForm.category}
                 onChange={(e) => setWorldForm({ ...worldForm, category: e.target.value })}
-                placeholder="如：修炼体系、地理环境"
+                placeholder={t.workspace.categoryPlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>描述</Label>
+              <Label>{t.workspace.settingDescription}</Label>
               <Textarea
                 value={worldForm.description}
                 onChange={(e) => setWorldForm({ ...worldForm, description: e.target.value })}
-                placeholder="详细描述"
+                placeholder={t.workspace.detailDescription}
                 rows={4}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setWorldDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveWorld}>保存</Button>
+            <Button onClick={handleSaveWorld}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1618,28 +1622,28 @@ export default function ProjectWorkspace() {
       <Dialog open={factDialogOpen} onOpenChange={setFactDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingFactId ? "编辑事实" : "添加事实"}</DialogTitle>
+            <DialogTitle>{editingFactId ? t.workspace.editFact : t.workspace.addFact}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>事实陈述</Label>
+              <Label>{t.workspace.factStatement}</Label>
               <Textarea
                 value={factForm.statement}
                 onChange={(e) => setFactForm({ ...factForm, statement: e.target.value })}
-                placeholder="描述一个已经发生的事实"
+                placeholder={t.workspace.factStatementPlaceholder}
                 rows={3}
               />
             </div>
             <div className="grid gap-2">
-              <Label>来源章节</Label>
+              <Label>{t.workspace.sourceChapter}</Label>
               <Input
                 value={factForm.source}
                 onChange={(e) => setFactForm({ ...factForm, source: e.target.value })}
-                placeholder="如：第一章"
+                placeholder={t.workspace.sourceChapterPlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>置信度 ({((factForm.confidence || 1) * 100).toFixed(0)}%)</Label>
+              <Label>{t.workspace.confidence} ({((factForm.confidence || 1) * 100).toFixed(0)}%)</Label>
               <input
                 type="range"
                 min="0"
@@ -1653,9 +1657,9 @@ export default function ProjectWorkspace() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFactDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveFact}>保存</Button>
+            <Button onClick={handleSaveFact}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1664,57 +1668,57 @@ export default function ProjectWorkspace() {
       <Dialog open={timelineDialogOpen} onOpenChange={setTimelineDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingTimelineId ? "编辑时间线事件" : "添加时间线事件"}</DialogTitle>
+            <DialogTitle>{editingTimelineId ? t.workspace.editEvent : t.workspace.addTimelineEvent}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>时间</Label>
+              <Label>{t.workspace.time}</Label>
               <Input
                 value={timelineForm.time}
                 onChange={(e) => setTimelineForm({ ...timelineForm, time: e.target.value })}
-                placeholder="如：第一天清晨、三年前"
+                placeholder={t.workspace.timePlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>事件描述</Label>
+              <Label>{t.workspace.eventDescription}</Label>
               <Textarea
                 value={timelineForm.event}
                 onChange={(e) => setTimelineForm({ ...timelineForm, event: e.target.value })}
-                placeholder="发生了什么"
+                placeholder={t.workspace.eventDescriptionPlaceholder}
                 rows={3}
               />
             </div>
             <div className="grid gap-2">
-              <Label>地点</Label>
+              <Label>{t.workspace.location}</Label>
               <Input
                 value={timelineForm.location}
                 onChange={(e) => setTimelineForm({ ...timelineForm, location: e.target.value })}
-                placeholder="事件发生地点"
+                placeholder={t.workspace.locationPlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>参与者（每行一个）</Label>
+              <Label>{t.workspace.participants}</Label>
               <Textarea
                 value={(timelineForm.participants || []).join("\n")}
                 onChange={(e) => setTimelineForm({ ...timelineForm, participants: e.target.value.split("\n").filter(Boolean) })}
-                placeholder="参与此事件的角色"
+                placeholder={t.workspace.participantsPlaceholder}
                 rows={2}
               />
             </div>
             <div className="grid gap-2">
-              <Label>来源章节</Label>
+              <Label>{t.workspace.sourceChapter}</Label>
               <Input
                 value={timelineForm.source}
                 onChange={(e) => setTimelineForm({ ...timelineForm, source: e.target.value })}
-                placeholder="如：第一章"
+                placeholder={t.workspace.sourceChapterPlaceholder}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTimelineDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveTimeline}>保存</Button>
+            <Button onClick={handleSaveTimeline}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1723,79 +1727,79 @@ export default function ProjectWorkspace() {
       <Dialog open={stateDialogOpen} onOpenChange={setStateDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingStateKey ? "编辑角色状态" : "添加角色状态"}</DialogTitle>
+            <DialogTitle>{editingStateKey ? t.workspace.editState : t.workspace.addState}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>角色</Label>
+                <Label>{t.workspace.character}</Label>
                 <select
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                   value={stateForm.character}
                   onChange={(e) => setStateForm({ ...stateForm, character: e.target.value })}
                 >
-                  <option value="">选择角色</option>
+                  <option value="">{t.workspace.selectCharacter}</option>
                   {characters.map((c) => (
                     <option key={c.name} value={c.name}>{c.name}</option>
                   ))}
                 </select>
               </div>
               <div className="grid gap-2">
-                <Label>截止章节</Label>
+                <Label>{t.workspace.chapter}</Label>
                 <Input
                   value={stateForm.chapter}
                   onChange={(e) => setStateForm({ ...stateForm, chapter: e.target.value })}
-                  placeholder="如：第一章"
+                  placeholder={t.workspace.sourceChapterPlaceholder}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label>当前位置</Label>
+                <Label>{t.workspace.currentLocation}</Label>
                 <Input
                   value={stateForm.location}
                   onChange={(e) => setStateForm({ ...stateForm, location: e.target.value })}
-                  placeholder="角色当前所在地"
+                  placeholder={t.workspace.currentLocationPlaceholder}
                 />
               </div>
               <div className="grid gap-2">
-                <Label>情绪状态</Label>
+                <Label>{t.workspace.emotionalState}</Label>
                 <Input
                   value={stateForm.emotional_state}
                   onChange={(e) => setStateForm({ ...stateForm, emotional_state: e.target.value })}
-                  placeholder="如：愤怒、悲伤"
+                  placeholder={t.workspace.emotionalStatePlaceholder}
                 />
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>当前目标（每行一个）</Label>
+              <Label>{t.workspace.currentGoals}</Label>
               <Textarea
                 value={(stateForm.goals || []).join("\n")}
                 onChange={(e) => setStateForm({ ...stateForm, goals: e.target.value.split("\n").filter(Boolean) })}
-                placeholder="角色当前的目标"
+                placeholder={t.workspace.currentGoalsPlaceholder}
                 rows={2}
               />
             </div>
             <div className="grid gap-2">
-              <Label>伤势（每行一个）</Label>
+              <Label>{t.workspace.injuries}</Label>
               <Textarea
                 value={(stateForm.injuries || []).join("\n")}
                 onChange={(e) => setStateForm({ ...stateForm, injuries: e.target.value.split("\n").filter(Boolean) })}
-                placeholder="角色当前的伤势"
+                placeholder={t.workspace.injuriesPlaceholder}
                 rows={2}
               />
             </div>
             <div className="grid gap-2">
-              <Label>持有物品（每行一个）</Label>
+              <Label>{t.workspace.inventory}</Label>
               <Textarea
                 value={(stateForm.inventory || []).join("\n")}
                 onChange={(e) => setStateForm({ ...stateForm, inventory: e.target.value.split("\n").filter(Boolean) })}
-                placeholder="角色当前持有的关键物品"
+                placeholder={t.workspace.inventoryPlaceholder}
                 rows={2}
               />
             </div>
             <div className="grid gap-2">
-              <Label>人物关系（每行一个，格式：角色名:关系）</Label>
+              <Label>{t.workspace.relationships}</Label>
               <Textarea
                 value={Object.entries(stateForm.relationships || {}).map(([k, v]) => `${k}:${v}`).join("\n")}
                 onChange={(e) => {
@@ -1808,16 +1812,16 @@ export default function ProjectWorkspace() {
                   })
                   setStateForm({ ...stateForm, relationships })
                 }}
-                placeholder="张三:盟友&#10;李四:敌对"
+                placeholder={t.workspace.relationshipsPlaceholder}
                 rows={2}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStateDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveState}>保存</Button>
+            <Button onClick={handleSaveState}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1826,34 +1830,34 @@ export default function ProjectWorkspace() {
       <Dialog open={chapterDialogOpen} onOpenChange={setChapterDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>创建新章节</DialogTitle>
+            <DialogTitle>{t.workspace.createChapter}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>章节标题</Label>
+              <Label>{t.workspace.chapterTitle}</Label>
               <Input
                 value={chapterForm.title}
                 onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
-                placeholder="如：第一章 初入江湖"
+                placeholder={t.workspace.chapterTitlePlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>章节大纲（可选）</Label>
+              <Label>{t.workspace.chapterOutline}</Label>
               <Textarea
                 value={chapterForm.outline}
                 onChange={(e) => setChapterForm({ ...chapterForm, outline: e.target.value })}
-                placeholder="描述这一章的主要情节和要点，AI 会根据大纲进行创作"
+                placeholder={t.workspace.chapterOutlinePlaceholder}
                 rows={5}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setChapterDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
             <Button onClick={handleStartWriting}>
               <Pen className="w-4 h-4 mr-1" />
-              开始创作
+              {t.workspace.startCreating}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1863,24 +1867,24 @@ export default function ProjectWorkspace() {
       <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>导出小说</DialogTitle>
+            <DialogTitle>{t.workspace.exportTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {exportInfo && (
               <div className="p-4 bg-muted rounded-lg">
                 <div className="flex justify-between text-sm">
-                  <span>章节数</span>
-                  <span className="font-medium">{exportInfo.chapter_count} 章</span>
+                  <span>{t.workspace.chapterCount}</span>
+                  <span className="font-medium">{exportInfo.chapter_count} {t.common.chapters}</span>
                 </div>
                 <div className="flex justify-between text-sm mt-2">
-                  <span>总字数</span>
-                  <span className="font-medium">{exportInfo.total_words.toLocaleString()} 字</span>
+                  <span>{t.workspace.totalWords}</span>
+                  <span className="font-medium">{exportInfo.total_words.toLocaleString()} {t.common.words}</span>
                 </div>
               </div>
             )}
 
             <div className="grid gap-2">
-              <Label>导出格式</Label>
+              <Label>{t.workspace.exportFormat}</Label>
               <div className="flex gap-2">
                 <Button
                   variant={exportFormat === "txt" ? "default" : "outline"}
@@ -1905,51 +1909,51 @@ export default function ProjectWorkspace() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                {exportFormat === "txt" && "纯文本格式，兼容性最好"}
-                {exportFormat === "markdown" && "Markdown 格式，带目录和格式"}
-                {exportFormat === "epub" && "电子书格式，可在阅读器中打开"}
+                {exportFormat === "txt" && t.workspace.txtDescription}
+                {exportFormat === "markdown" && t.workspace.markdownDescription}
+                {exportFormat === "epub" && t.workspace.epubDescription}
               </p>
             </div>
 
             <div className="grid gap-2">
-              <Label>内容来源</Label>
+              <Label>{t.workspace.contentSource}</Label>
               <div className="flex gap-2">
                 <Button
                   variant={exportUseFinal ? "default" : "outline"}
                   size="sm"
                   onClick={() => setExportUseFinal(true)}
                 >
-                  成稿优先
+                  {t.workspace.finalFirst}
                 </Button>
                 <Button
                   variant={!exportUseFinal ? "default" : "outline"}
                   size="sm"
                   onClick={() => setExportUseFinal(false)}
                 >
-                  最新草稿
+                  {t.workspace.latestDraft}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
                 {exportUseFinal
-                  ? "优先使用已确认的成稿，没有成稿时使用最新草稿"
-                  : "始终使用最新版本的草稿"}
+                  ? t.workspace.finalFirstDesc
+                  : t.workspace.latestDraftDesc}
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setExportDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
             <Button onClick={handleExport} disabled={exporting || !exportInfo?.chapter_count}>
               {exporting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  导出中...
+                  {t.workspace.exporting}
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4 mr-1" />
-                  导出
+                  {t.workspace.export}
                 </>
               )}
             </Button>
@@ -1961,14 +1965,14 @@ export default function ProjectWorkspace() {
       <Dialog open={extractDialogOpen} onOpenChange={setExtractDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>自动提取事实</DialogTitle>
+            <DialogTitle>{t.workspace.extractTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>选择章节</Label>
+              <Label>{t.workspace.selectChapter}</Label>
               <Select value={extractChapter} onValueChange={setExtractChapter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="选择要提取的章节" />
+                  <SelectValue placeholder={t.workspace.selectChapterPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
                   {drafts.map((draft) => (
@@ -1979,24 +1983,24 @@ export default function ProjectWorkspace() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                AI 将从选中章节的内容中提取事实、时间线事件和角色状态
+                {t.workspace.extractHint}
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setExtractDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
             <Button onClick={handleAIExtract} disabled={extracting || !extractChapter}>
               {extracting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  提取中...
+                  {t.workspace.extracting}
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-1" />
-                  开始提取
+                  {t.workspace.startExtract}
                 </>
               )}
             </Button>
@@ -2008,48 +2012,48 @@ export default function ProjectWorkspace() {
       <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>编辑项目信息</DialogTitle>
+            <DialogTitle>{t.workspace.editProjectTitle}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>作品名称</Label>
+              <Label>{t.projectList.projectName}</Label>
               <Input
                 value={projectForm.name}
                 onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                placeholder="输入作品名称"
+                placeholder={t.projectList.projectNamePlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>作者</Label>
+              <Label>{t.projectList.author}</Label>
               <Input
                 value={projectForm.author}
                 onChange={(e) => setProjectForm({ ...projectForm, author: e.target.value })}
-                placeholder="输入作者名"
+                placeholder={t.projectList.authorPlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>类型</Label>
+              <Label>{t.projectList.genre}</Label>
               <Input
                 value={projectForm.genre}
                 onChange={(e) => setProjectForm({ ...projectForm, genre: e.target.value })}
-                placeholder="如：玄幻、都市、科幻"
+                placeholder={t.projectList.genrePlaceholder}
               />
             </div>
             <div className="grid gap-2">
-              <Label>简介</Label>
+              <Label>{t.projectList.description}</Label>
               <Textarea
                 value={projectForm.description}
                 onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                placeholder="简单介绍一下你的作品"
+                placeholder={t.projectList.descriptionPlaceholder}
                 rows={3}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setProjectDialogOpen(false)}>
-              取消
+              {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveProject}>保存</Button>
+            <Button onClick={handleSaveProject}>{t.common.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

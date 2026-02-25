@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LanguageToggle } from "@/components/LanguageToggle"
+import { useLanguage } from "@/i18n"
 import { settingsApi } from "@/api"
 import type {
   ProviderInfo,
@@ -35,6 +37,7 @@ import type {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testingProvider, setTestingProvider] = useState<string | null>(null)
@@ -84,13 +87,12 @@ export default function SettingsPage() {
         providers: providerSettings,
         agents: agentSettings,
       })
-      // Reload to get fresh data
       await loadData()
-      setTestResult({ success: true, message: "设置已保存" })
+      setTestResult({ success: true, message: t.settings.settingsSaved })
       setTimeout(() => setTestResult(null), 3000)
     } catch (err) {
       console.error("Failed to save settings:", err)
-      setTestResult({ success: false, message: "保存失败" })
+      setTestResult({ success: false, message: t.settings.saveFailed })
     } finally {
       setSaving(false)
     }
@@ -114,7 +116,7 @@ export default function SettingsPage() {
       )
       setTestResult(res.data)
     } catch (err) {
-      setTestResult({ success: false, message: "连接测试失败" })
+      setTestResult({ success: false, message: t.settings.connectionTestFailed })
     } finally {
       setTestingProvider(null)
     }
@@ -166,11 +168,12 @@ export default function SettingsPage() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">设置</h1>
-              <p className="text-muted-foreground">配置 LLM 提供商和智能体参数</p>
+              <h1 className="text-2xl font-bold">{t.settings.title}</h1>
+              <p className="text-muted-foreground">{t.settings.subtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <LanguageToggle />
             <ThemeToggle />
             <Button onClick={handleSave} disabled={saving}>
             {saving ? (
@@ -178,7 +181,7 @@ export default function SettingsPage() {
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
-            保存设置
+            {t.settings.saveSettings}
           </Button>
           </div>
         </div>
@@ -205,8 +208,8 @@ export default function SettingsPage() {
 
         <Tabs defaultValue="providers" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="providers">LLM 提供商</TabsTrigger>
-            <TabsTrigger value="agents">智能体</TabsTrigger>
+            <TabsTrigger value="providers">{t.settings.providers}</TabsTrigger>
+            <TabsTrigger value="agents">{t.settings.agents}</TabsTrigger>
           </TabsList>
 
           {/* Providers Tab */}
@@ -214,13 +217,13 @@ export default function SettingsPage() {
             {/* Default Provider */}
             <Card>
               <CardHeader>
-                <CardTitle>默认提供商</CardTitle>
-                <CardDescription>选择默认使用的 LLM 提供商</CardDescription>
+                <CardTitle>{t.settings.defaultProvider}</CardTitle>
+                <CardDescription>{t.settings.defaultProviderDesc}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Select value={defaultProvider} onValueChange={setDefaultProvider}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="选择提供商" />
+                    <SelectValue placeholder={t.settings.selectProvider} />
                   </SelectTrigger>
                   <SelectContent>
                     {providers.map((p) => (
@@ -241,7 +244,7 @@ export default function SettingsPage() {
                     <div>
                       <CardTitle>{provider.name}</CardTitle>
                       <CardDescription>
-                        {provider.id === "custom" ? "自定义 OpenAI 兼容 API" : `${provider.name} API 配置`}
+                        {provider.id === "custom" ? t.settings.customApi : `${provider.name} ${t.settings.apiConfig}`}
                       </CardDescription>
                     </div>
                     <Button
@@ -255,14 +258,14 @@ export default function SettingsPage() {
                       ) : (
                         <Zap className="w-4 h-4 mr-1" />
                       )}
-                      测试连接
+                      {t.settings.testConnection}
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* API Key */}
                   <div className="grid gap-2">
-                    <Label>API Key</Label>
+                    <Label>{t.settings.apiKey}</Label>
                     <div className="flex gap-2">
                       <Input
                         type={showApiKeys[provider.id] ? "text" : "password"}
@@ -294,9 +297,9 @@ export default function SettingsPage() {
                   {/* Base URL (for all providers - supports custom proxy) */}
                   <div className="grid gap-2">
                     <Label>
-                      Base URL
+                      {t.settings.baseUrl}
                       <span className="text-xs text-muted-foreground ml-2">
-                        (可选，用于自建代理或中转服务)
+                        ({t.settings.baseUrlHint})
                       </span>
                     </Label>
                     <Input
@@ -318,7 +321,7 @@ export default function SettingsPage() {
 
                   {/* Model Selection */}
                   <div className="grid gap-2">
-                    <Label>模型</Label>
+                    <Label>{t.settings.model}</Label>
                     {provider.models.length > 0 ? (
                       <>
                         <Select
@@ -332,7 +335,7 @@ export default function SettingsPage() {
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="选择模型" />
+                            <SelectValue placeholder={t.settings.selectModel} />
                           </SelectTrigger>
                           <SelectContent>
                             {provider.models.map((model) => (
@@ -340,7 +343,7 @@ export default function SettingsPage() {
                                 {model}
                               </SelectItem>
                             ))}
-                            <SelectItem value="__custom__">自定义模型...</SelectItem>
+                            <SelectItem value="__custom__">{t.settings.customModel}</SelectItem>
                           </SelectContent>
                         </Select>
                         {(!provider.models.includes(providerSettings[provider.id]?.model || "") ||
@@ -350,7 +353,7 @@ export default function SettingsPage() {
                             onChange={(e) =>
                               updateProviderSetting(provider.id, "model", e.target.value)
                             }
-                            placeholder="输入自定义模型名称"
+                            placeholder={t.settings.customModelPlaceholder}
                             className="mt-2"
                           />
                         )}
@@ -361,14 +364,14 @@ export default function SettingsPage() {
                         onChange={(e) =>
                           updateProviderSetting(provider.id, "model", e.target.value)
                         }
-                        placeholder="输入模型名称"
+                        placeholder={t.settings.modelNamePlaceholder}
                       />
                     )}
                   </div>
 
                   {/* Max Tokens */}
                   <div className="grid gap-2">
-                    <Label>最大 Token 数</Label>
+                    <Label>{t.settings.maxTokens}</Label>
                     <Input
                       type="number"
                       value={providerSettings[provider.id]?.max_tokens || 8000}
@@ -381,7 +384,7 @@ export default function SettingsPage() {
                   {/* Temperature */}
                   <div className="grid gap-2">
                     <div className="flex items-center justify-between">
-                      <Label>温度 (Temperature)</Label>
+                      <Label>{t.settings.temperature}</Label>
                       <span className="text-sm text-muted-foreground">
                         {providerSettings[provider.id]?.temperature?.toFixed(2) || "0.70"}
                       </span>
@@ -412,13 +415,13 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   {/* Provider Selection */}
                   <div className="grid gap-2">
-                    <Label>使用的提供商</Label>
+                    <Label>{t.settings.providerUsed}</Label>
                     <Select
                       value={agentSettings[agent.id]?.provider || defaultProvider}
                       onValueChange={(v) => updateAgentSetting(agent.id, "provider", v)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="选择提供商" />
+                        <SelectValue placeholder={t.settings.selectProvider} />
                       </SelectTrigger>
                       <SelectContent>
                         {providers.map((p) => (
@@ -433,7 +436,7 @@ export default function SettingsPage() {
                   {/* Temperature Override */}
                   <div className="grid gap-2">
                     <div className="flex items-center justify-between">
-                      <Label>温度 (Temperature)</Label>
+                      <Label>{t.settings.temperature}</Label>
                       <span className="text-sm text-muted-foreground">
                         {agentSettings[agent.id]?.temperature?.toFixed(2) || "0.70"}
                       </span>

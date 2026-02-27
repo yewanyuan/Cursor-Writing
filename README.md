@@ -419,6 +419,39 @@ Welcome to contribute via Issues and Pull Requests:
 
 ## 5. Changelog
 
+### 2026-02-26
+
+**Internationalization (i18n)**
+- Added Chinese/English language toggle, custom implementation (React Context, no third-party dependencies)
+  - `LanguageContext` provides language state management with localStorage persistence
+  - `translations.ts` contains full bilingual translations (common, projectList, workspace, writing, settings, stats, theme)
+  - `LanguageToggle` dropdown component added to all page headers
+- All 5 pages fully internationalized: ProjectList, ProjectWorkspace, WritingPage, SettingsPage, StatsPage
+- ThemeToggle component internationalized (Light/Dark/System labels follow language)
+- Auto-detect browser language (defaults to Chinese for zh-* locales, English otherwise)
+
+**Bug Fixes**
+- Fixed 9 wrong translation key references in StatsPage causing TypeScript compilation failure
+  - Including key name mismatches (e.g., `avgPerChapter` → `avgWordsPerChapter`) and wrong section references (e.g., `t.stats.versions` → `t.common.versions`)
+- Fixed 3 remaining hardcoded Chinese strings in StatsPage
+- Fixed `import type` not separated in LanguageContext causing Rollup build warnings
+- Fixed highlight display corruption after revision in insert mode
+  - Cause: Old `aiContentRange` not cleared after revision, stale range applied to new content
+  - Fix: Call `setAiContentRange(null)` when revision mode completes
+- Fixed white screen on unmatched routes
+  - Added `<Route path="*">` catch-all route, auto-redirects to homepage
+
+**Chapter Title Display Enhancement**
+- Split chapter creation dialog into "Chapter Number" and "Chapter Title" inputs
+- WritingPage receives full chapter info via URL params, displays as "Chapter X Title"
+- Draft save/load/continue/insert all use the combined full chapter name
+
+**Chapter Deletion**
+- Added `draftApi.delete()` frontend API (connects to existing `DELETE /projects/{id}/drafts/{chapter}` backend endpoint)
+- Added delete button on each chapter card in the chapter list (with confirmation prompt)
+
+---
+
 ### 2026-02-13
 
 **Canon Deduplication Optimization**
@@ -705,6 +738,6 @@ Welcome to contribute via Issues and Pull Requests:
 
 ---
 
-Version: v2.4
-Last Updated: 2026-02-12
+Version: v2.6
+Last Updated: 2026-02-26
 License: MIT

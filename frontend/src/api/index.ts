@@ -47,6 +47,7 @@ export const draftApi = {
   get: (projectId: string, chapter: string, version?: number) =>
     api.get<Draft>(`/projects/${projectId}/drafts/${chapter}`, { params: { version } }),
   save: (projectId: string, draft: Partial<Draft>) => api.post(`/projects/${projectId}/drafts`, draft),
+  delete: (projectId: string, chapter: string) => api.delete(`/projects/${projectId}/drafts/${encodeURIComponent(chapter)}`),
   getVersions: (projectId: string, chapter: string) => api.get<number[]>(`/projects/${projectId}/drafts/${chapter}/versions`),
 }
 

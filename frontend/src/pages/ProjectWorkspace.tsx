@@ -120,6 +120,7 @@ export default function ProjectWorkspace() {
   // 章节对话框状态
   const [chapterDialogOpen, setChapterDialogOpen] = useState(false)
   const [chapterForm, setChapterForm] = useState({
+    number: "",
     title: "",
     outline: "",
   })
@@ -583,24 +584,36 @@ export default function ProjectWorkspace() {
 
   // 章节相关
   const openNewChapterDialog = () => {
-    // 自动生成下一章的标题
     const nextChapterNum = drafts.length + 1
     setChapterForm({
-      title: t.workspace.defaultChapterTitle.replace("{n}", String(nextChapterNum)),
+      number: t.workspace.defaultChapterTitle.replace("{n}", String(nextChapterNum)),
+      title: "",
       outline: "",
     })
     setChapterDialogOpen(true)
   }
 
   const handleStartWriting = () => {
-    if (!projectId || !chapterForm.title) return
-    // 跳转到写作页面，带上章节标题和大纲
+    if (!projectId || !chapterForm.number) return
     const params = new URLSearchParams({
-      chapter: chapterForm.title,
+      chapter: chapterForm.number,
+      ...(chapterForm.title && { chapter_title: chapterForm.title }),
       ...(chapterForm.outline && { outline: chapterForm.outline }),
     })
     setChapterDialogOpen(false)
     navigate(`/write/${projectId}?${params.toString()}`)
+  }
+
+  const handleDeleteChapter = async (chapter: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!projectId) return
+    if (!confirm(t.workspace.deleteChapterConfirm)) return
+    try {
+      await draftApi.delete(projectId, chapter)
+      setDrafts((prev) => prev.filter((d) => d.chapter !== chapter))
+    } catch (err) {
+      console.error("Failed to delete chapter:", err)
+    }
   }
 
   // 导出相关
@@ -1496,7 +1509,7 @@ export default function ProjectWorkspace() {
                     <Card
                       key={`${draft.chapter}-${draft.version}`}
                       className="cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => navigate(`/write/${projectId}?chapter=${draft.chapter}`)}
+                      onClick={() => navigate(`/write/${projectId}?chapter=${encodeURIComponent(draft.chapter)}`)}
                     >
                       <CardContent className="flex items-center justify-between py-4">
                         <div>
@@ -1505,17 +1518,27 @@ export default function ProjectWorkspace() {
                             {draft.word_count} {t.common.words} · {t.workspace.version} {draft.version}
                           </p>
                         </div>
-                        <span
-                          className={`text-xs px-2 py-1 rounded-full ${
-                            draft.status === "final"
-                              ? "bg-green-100 text-green-700"
-                              : draft.status === "reviewed"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {draft.status === "final" ? t.workspace.final : draft.status === "reviewed" ? t.workspace.reviewed : t.workspace.draft}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-xs px-2 py-1 rounded-full ${
+                              draft.status === "final"
+                                ? "bg-green-100 text-green-700"
+                                : draft.status === "reviewed"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-gray-100 text-gray-700"
+                            }`}
+                          >
+                            {draft.status === "final" ? t.workspace.final : draft.status === "reviewed" ? t.workspace.reviewed : t.workspace.draft}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => handleDeleteChapter(draft.chapter, e)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))
@@ -1833,6 +1856,14 @@ export default function ProjectWorkspace() {
             <DialogTitle>{t.workspace.createChapter}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>{t.writing.chapterNumber}</Label>
+              <Input
+                value={chapterForm.number}
+                onChange={(e) => setChapterForm({ ...chapterForm, number: e.target.value })}
+                placeholder={t.writing.chapterNumberPlaceholder}
+              />
+            </div>
             <div className="grid gap-2">
               <Label>{t.workspace.chapterTitle}</Label>
               <Input

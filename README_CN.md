@@ -419,6 +419,39 @@ npm run dev
 
 ## 5. 更新日志
 
+### 2026-02-26
+
+**多语言切换功能 (i18n)**
+- 新增中英文切换功能，自定义实现（基于 React Context，无第三方依赖）
+  - `LanguageContext` 提供语言状态管理，支持 localStorage 持久化
+  - `translations.ts` 包含中英文完整翻译（common、projectList、workspace、writing、settings、stats、theme）
+  - `LanguageToggle` 下拉组件，添加到所有页面头部
+- 所有 5 个页面完成国际化：ProjectList、ProjectWorkspace、WritingPage、SettingsPage、StatsPage
+- ThemeToggle 组件国际化（浅色/深色/跟随系统随语言切换）
+- 浏览器语言自动检测（中文环境默认中文，其他默认英文）
+
+**Bug 修复**
+- 修复 StatsPage 中 9 处翻译 key 引用错误导致 TypeScript 编译失败的问题
+  - 包括 key 名称拼写不匹配（如 `avgPerChapter` → `avgWordsPerChapter`）和错误的 section 引用（如 `t.stats.versions` → `t.common.versions`）
+- 修复 StatsPage 中 3 处残留的硬编码中文（"章节详情"、"字"、"暂无章节"）
+- 修复 LanguageContext 中 `import type` 未分离导致 Rollup 构建警告的问题
+- 修复插入功能修改后高亮显示错乱的问题
+  - 原因：修订完成后未清除旧的 `aiContentRange`，旧高亮范围应用在新内容上导致位置偏移
+  - 修复：修订模式完成时调用 `setAiContentRange(null)` 清除高亮
+- 修复未匹配路由导致白屏的问题
+  - 新增 `<Route path="*">` 通配路由，自动重定向到首页
+
+**章节标题显示优化**
+- 创建章节对话框拆分为"章节编号"和"章节标题"两个输入框
+- WritingPage 通过 URL 参数接收完整章节信息，组合为 `"第X章 标题名"` 显示
+- 草稿保存、加载、续写/插入统一使用完整章节名称
+
+**章节删除功能**
+- 前端新增 `draftApi.delete()` 接口（对接后端已有的 `DELETE /projects/{id}/drafts/{chapter}` API）
+- 章节列表每个卡片右侧新增删除按钮（带确认提示）
+
+---
+
 ### 2026-02-13
 
 **事实表去重优化**
@@ -705,6 +738,6 @@ npm run dev
 
 ---
 
-版本：v2.5
-更新时间：2026-02-13
+版本：v2.6
+更新时间：2026-02-26
 许可证：MIT

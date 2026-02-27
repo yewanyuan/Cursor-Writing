@@ -69,10 +69,13 @@ export default function WritingPage() {
 
   // Form state
   const [chapter, setChapter] = useState(searchParams.get("chapter") || t.writing.chapterNumberPlaceholder.replace("e.g., ", "").replace("如：", ""))
-  const [chapterTitle, setChapterTitle] = useState("")
+  const [chapterTitle, setChapterTitle] = useState(searchParams.get("chapter_title") || "")
   const [chapterGoal, setChapterGoal] = useState(searchParams.get("outline") || "")
   const [selectedChars, setSelectedChars] = useState<string[]>([])
   const [targetWords, setTargetWords] = useState(2000)
+
+  // 组合章节编号和标题作为显示名称和草稿 key
+  const fullChapterName = chapterTitle ? `${chapter} ${chapterTitle}` : chapter
 
   // Continue writing state
   const [writeMode, setWriteMode] = useState<WriteMode>("new")
@@ -94,8 +97,8 @@ export default function WritingPage() {
   }, [])
 
   // WebSocket 连接
-  const chapterRef = useRef(chapter)
-  chapterRef.current = chapter
+  const chapterRef = useRef(fullChapterName)
+  chapterRef.current = fullChapterName
 
   useEffect(() => {
     if (!projectId) return
@@ -223,9 +226,11 @@ export default function WritingPage() {
 
       // 如果 URL 中有 chapter 参数，加载该章节的草稿
       const chapterParam = searchParams.get("chapter")
+      const chapterTitleParam = searchParams.get("chapter_title")
       if (chapterParam) {
+        const draftKey = chapterTitleParam ? `${chapterParam} ${chapterTitleParam}` : chapterParam
         try {
-          const draftRes = await draftApi.get(projectId, chapterParam)
+          const draftRes = await draftApi.get(projectId, draftKey)
           setContent(draftRes.data.content)
           setLastSavedContent(draftRes.data.content)  // 初始化已保存内容
           setChapter(chapterParam)
@@ -247,7 +252,7 @@ export default function WritingPage() {
     try {
       setAutoSaveStatus("saving")
       await draftApi.save(projectId, {
-        chapter,
+        chapter: fullChapterName,
         content,
         word_count: content.length,
         status: "draft",
@@ -260,7 +265,7 @@ export default function WritingPage() {
       console.error("Auto save failed:", err)
       setAutoSaveStatus("idle")
     }
-  }, [projectId, chapter, content, lastSavedContent])
+  }, [projectId, chapter, fullChapterName, content, lastSavedContent])
 
   // 定时自动保存（每30秒）
   useEffect(() => {
@@ -306,12 +311,12 @@ export default function WritingPage() {
     try {
       setStatus({ status: "briefing" })
       skipNextHighlight.current = false
-      addMessage("user", `${t.writing.startCreatingChapter} ${chapter}: ${chapterTitle}`)
+      addMessage("user", `${t.writing.startCreatingChapter} ${fullChapterName}`)
       addMessage("assistant", t.writing.preparingMaterials)
 
       await sessionApi.start({
         project_id: projectId,
-        chapter,
+        chapter: fullChapterName,
         chapter_title: chapterTitle,
         chapter_goal: chapterGoal,
         characters: selectedChars,
@@ -351,7 +356,7 @@ export default function WritingPage() {
     if (!projectId || !content) return
     try {
       await draftApi.save(projectId, {
-        chapter,
+        chapter: fullChapterName,
         content,
         word_count: content.length,
         status: "draft",
@@ -392,7 +397,7 @@ export default function WritingPage() {
 
       const result = await sessionApi.continue({
         project_id: projectId,
-        chapter,
+        chapter: fullChapterName,
         existing_content: content,
         instruction: continueInstruction,
         target_words: continueTargetWords,
@@ -457,7 +462,7 @@ export default function WritingPage() {
           </Button>
           <div className="flex-1">
             <h1 className="font-medium">{project?.name}</h1>
-            <p className="text-sm text-muted-foreground">{chapter}</p>
+            <p className="text-sm text-muted-foreground">{fullChapterName}</p>
           </div>
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             {wsConnected ? (

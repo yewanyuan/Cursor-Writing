@@ -1498,7 +1498,7 @@ export default function ProjectWorkspace() {
                 </Button>
               </div>
             </div>
-            <ScrollArea className="h-[500px]">
+            <ScrollArea className="h-[calc(100vh-320px)] min-h-[300px]">
               <div className="space-y-2">
                 {drafts.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">

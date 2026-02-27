@@ -19,6 +19,8 @@
 - **审稿人 (Reviewer)**：审核质量、检测与已知事实的冲突
 - **编辑 (Editor)**：根据审稿意见和用户反馈修订草稿
 
+![多智能体协作流程](preview-image/process.jpg)
+
 </details>
 
 <details>
@@ -176,7 +178,17 @@ data/projects/{project_id}/
 
 ## 效果展示
 
-（待补充截图）
+![首页](preview-image/Homepage.png)
+
+![创作界面](preview-image/Creation-Interface.png)
+
+![角色设定](preview-image/Character.png)
+
+![文风设定](preview-image/Style.png)
+
+![规则设定](preview-image/Rules.png)
+
+![事实表](preview-image/Canon.png)
 
 ## 1. 快速开始
 

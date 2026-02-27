@@ -19,6 +19,8 @@ Four specialized Agents work together, simulating a real editorial workflow.
 - **Reviewer**: Reviews quality, detects conflicts with established facts
 - **Editor**: Revises drafts based on review feedback and user input
 
+![Multi-Agent Collaboration Workflow](preview-image/process.jpg)
+
 </details>
 
 <details>
@@ -176,7 +178,17 @@ data/projects/{project_id}/
 
 ## Screenshots
 
-(Screenshots to be added)
+![Homepage](preview-image/Homepage.png)
+
+![Creation Interface](preview-image/Creation-Interface.png)
+
+![Character Settings](preview-image/Character.png)
+
+![Style Settings](preview-image/Style.png)
+
+![Rules Settings](preview-image/Rules.png)
+
+![Canon / Fact Table](preview-image/Canon.png)
 
 ## 1. Quick Start
 
